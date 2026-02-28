@@ -2929,20 +2929,20 @@ Struttura la risposta con sezioni chiare. Sii diretto e pratico, as a profession
 
     const apiKey = document.getElementById('apiKeyInput')?.value?.trim();
 
+    const headers = {
+      'Content-Type': 'application/json',
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-allowlist': 'true',
+      'anthropic-dangerous-request-header-allowlist': 'x-api-key,anthropic-version,anthropic-dangerous-direct-browser-allowlist',
+    };
+    if (apiKey) headers['x-api-key'] = apiKey;
+
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-allowlist': 'true',
-        ...(apiKey ? {
-          'x-api-key': apiKey,
-          'anthropic-dangerous-request-header-allowlist': 'x-api-key,anthropic-version,anthropic-dangerous-direct-browser-allowlist'
-        } : {})
-      },
+      headers,
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: isOptimizer ? 4096 : 4096,
+        model: 'claude-sonnet-4-5-20251001',
+        max_tokens: 4096,
         system: systemPrompt,
         messages: [{ role: 'user', content: userPrompt }]
       })
@@ -2972,12 +2972,12 @@ Struttura la risposta con sezioni chiare. Sii diretto e pratico, as a profession
 
   } catch(err) {
     let msg = err.message;
-    if (msg === 'Failed to fetch' || msg.includes('NetworkError') || msg.includes('fetch')) {
+    if (msg === 'Failed to fetch' || msg.includes('NetworkError') || msg.includes('Load failed') || msg.includes('fetch')) {
       const hasKey = !!document.getElementById('apiKeyInput')?.value?.trim();
       if (!hasKey) {
         msg = 'Connection failed. Enter your Anthropic API key in the field above.';
       } else {
-        msg = 'Connection failed (CORS). Open the file via a local server or use the GitHub Pages version.';
+        msg = 'Connection failed. Check that your API key is valid and has credits available (console.anthropic.com).';
       }
     }
     errEl.textContent = '[!] ' + msg;
