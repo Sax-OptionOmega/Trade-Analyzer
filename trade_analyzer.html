@@ -2384,7 +2384,7 @@ function switchTab(id) {
   if(id==='strategies') renderStrategies();
   if(id==='vix') renderVIX();
   if(id==='trades') renderTradeLog();
-  if(id==='detail') { if(!document.getElementById('stratSelect').value) renderDetail(); }
+  if(id==='detail') { renderDetail(); }
 }
 document.getElementById('tabs').addEventListener('click',e=>{
   if(e.target.classList.contains('tab')) switchTab(e.target.dataset.tab);
