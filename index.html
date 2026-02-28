@@ -1025,13 +1025,13 @@ function renderPortfolio() {
         pctStr = `<span style="color:${pct>=0?'var(--accent)':'var(--red)'}">${pct>=0?'+':''}${pct.toFixed(1)}%</span>`;
       }
     }
-    return \`<tr>
-      <td class="tm">\${MN[m.month]} \${m.year}</td>
-      <td class="\${pos?'tg':'tr'}">\${fmt$(m.pl)}</td>
-      <td class="tn">\${pctStr}</td>
-      <td class="tn">\${m.total}</td>
-      <td class="\${wr>=50?'tg':'tr'}">\${wr}%</td>
-    </tr>\`;
+    return `<tr>
+      <td class="tm">${MN[m.month]} ${m.year}</td>
+      <td class="${pos?'tg':'tr'}">${fmt$(m.pl)}</td>
+      <td class="tn">${pctStr}</td>
+      <td class="tn">${m.total}</td>
+      <td class="${wr>=50?'tg':'tr'}">${wr}%</td>
+    </tr>`;
   }).join('');
 
   // Reasons
