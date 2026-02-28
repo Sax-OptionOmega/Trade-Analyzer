@@ -98,12 +98,21 @@ Exported CSV from **[Option Omega](https://optonomega.com)** with the following 
 
 ## Screenshots
 
-> *(coming soon)*
+### Portfolio Overview
+![Portfolio](screenshots/portfolio.png)
+
+### Strategy Comparison & Correlation Matrix
+![Strategies](screenshots/strategies.png)
+
+### VIX Regime Analysis
+![VIX Analysis](screenshots/vix.png)
+
+### Strategy Detail
+![Strategy Detail](screenshots/detail.png)
 
 ---
 
 ## Roadmap
-
 - [ ] Multi-account / multi-broker CSV support
 - [ ] Export analysis as PDF report
 - [ ] Strategy performance alerts
