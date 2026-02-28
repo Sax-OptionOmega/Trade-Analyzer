@@ -429,7 +429,7 @@ input[type=range].zslider::-webkit-slider-thumb {
         <div class="card"><div class="cw"><canvas id="dowChart" height="180"></canvas></div></div>
       </div>
       <div>
-        <div class="sec">Avg P/L per Month dell'Anno</div>
+        <div class="sec">Avg P/L by Month of Year</div>
         <div class="card"><div class="cw"><canvas id="moyChart" height="180"></canvas></div></div>
       </div>
     </div>
@@ -493,7 +493,7 @@ input[type=range].zslider::-webkit-slider-thumb {
         </table>
       </div>
     </div>
-    <div class="sec">Equity Curve per Strategy</div>
+    <div class="sec">Equity Curve by Strategy</div>
     <div class="card"><div class="cw"><canvas id="stratEqChart" height="240"></canvas></div></div>
     <div class="g3">
       <div>
@@ -501,11 +501,11 @@ input[type=range].zslider::-webkit-slider-thumb {
         <div class="card"><div class="cw"><canvas id="wrChart" height="220"></canvas></div></div>
       </div>
       <div>
-        <div class="sec">Total P/Lale per Strategy</div>
+        <div class="sec">Total P/L by Strategy</div>
         <div class="card"><div class="cw"><canvas id="plChart" height="220"></canvas></div></div>
       </div>
       <div>
-        <div class="sec">Return on Margin per Strategy</div>
+        <div class="sec">Return on Margin by Strategy</div>
         <div class="card"><div class="cw"><canvas id="romChart" height="220"></canvas></div></div>
       </div>
     </div>
@@ -541,7 +541,7 @@ input[type=range].zslider::-webkit-slider-thumb {
         <div class="card"><div class="cw"><canvas id="vixWrChart" height="220"></canvas></div></div>
       </div>
     </div>
-    <div class="sec">VIX Heatmap — Avg P/L per Strategy × Regime</div>
+    <div class="sec">VIX Heatmap — Avg P/L by Strategy × Regime</div>
     <div class="card">
       <div class="cw" id="vixHeatmap"></div>
     </div>
@@ -557,7 +557,7 @@ input[type=range].zslider::-webkit-slider-thumb {
     <div class="kpi-grid" id="dKpis"></div>
     <div class="g3-1" style="align-items:start">
       <div>
-        <div class="sec">Equity Curve Strategy</div>
+        <div class="sec">Strategy Equity Curve</div>
         <div class="card"><div class="cw"><canvas id="dEqChart" height="200"></canvas></div></div>
       </div>
       <div>
@@ -567,7 +567,7 @@ input[type=range].zslider::-webkit-slider-thumb {
     </div>
     <div class="g2" style="margin-top:16px">
       <div>
-        <div class="sec">P/L Distribution Trades</div>
+        <div class="sec">P/L Distribution</div>
         <div class="card"><div class="cw"><canvas id="dDistChart" height="180"></canvas></div></div>
       </div>
       <div>
@@ -646,7 +646,7 @@ input[type=range].zslider::-webkit-slider-thumb {
     </div>
 
     <div class="ai-section" id="customQuestionBox" style="display:none">
-      <div class="sec">La tua domanda</div>
+      <div class="sec">Your Question</div>
       <textarea id="customQuestion"
         placeholder="E.g.: In which VIX regime do my iron condor strategies tend to lose the most? Or: Which strategy has the best risk/reward ratio considering the required margins?"
         style="width:100%;min-height:90px;background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;font-family:'DM Sans',sans-serif;font-size:12px;color:var(--text);resize:vertical;outline:none;line-height:1.5;transition:border-color .2s"
@@ -1281,7 +1281,7 @@ function renderMarginKpis(m) {
     {c:'b', l:'Average Daily Margin',    v:'$'+Math.round(m.avg).toLocaleString('it-IT'),              s:`over ${m.days.length} trading days`},
     {c:'r', l:'Maximum Margin',              v:'$'+Math.round(m.max).toLocaleString('it-IT'),              s:'All-time peak'},
     {c:'g', l:'Minimum Margin',               v:'$'+Math.round(m.min).toLocaleString('it-IT'),              s:'Day with least exposure'},
-    {c:'o', l:'Heaviest Margin Day',   v:dn[miMarg]+' · $'+Math.round(m.dowAvg[miMarg]).toLocaleString('it-IT'), s:'Weekday with highest average margin'},
+    {c:'o', l:'Peak Margin Day',   v:dn[miMarg]+' · $'+Math.round(m.dowAvg[miMarg]).toLocaleString('it-IT'), s:'Weekday with highest average margin'},
     {c:'p', l:'Trading Days',             v:m.days.length,                                              s:'Days with at least 1 open position'},
     {c:'r', l:'Max Concurrent Strategies',  v:m.maxConcurrent,                                            s:'All-time peak in un singolo giorno'},
     {c:'b', l:'Avg Concurrent Strategies',v:m.avgConcurrent.toFixed(1),                                 s:'Daily average across all trading days'},
@@ -1613,7 +1613,7 @@ function drawAnnualChart(id, monthlyArr, capitalBase) {
   // Capital base legend
   if(capitalBase){
     ctx.fillStyle=muted;ctx.font='9px Space Mono,monospace';ctx.textAlign='left';
-    ctx.fillText('% su capital base $'+Math.round(capitalBase/1000)+'k',pL,H-2);
+    ctx.fillText('% of capital base $'+Math.round(capitalBase/1000)+'k',pL,H-2);
   }
 }
 
@@ -2253,8 +2253,8 @@ function updateLivePanel() {
     { l:'Sharpe',        v: st.sharpe.toFixed(2),                    c: st.sharpe>=1?'var(--accent)':'var(--gold)' },
     { l:'Max Drawdown',  v: fmt$(st.maxDD),                          c: 'var(--red)' },
     { l:'Capital Base',  v: '$'+Math.round(selCapBase).toLocaleString('it-IT'), c: 'var(--muted)' },
-    { l:'Rend. % Anno',  v: annPct.toFixed(1)+'%',                   c: annPct>=100?'var(--accent)':'var(--gold)' },
-    { l:'Trades Totali',  v: selTradess.length,                        c: 'var(--text)' },
+    { l:'Ann. Return %',  v: annPct.toFixed(1)+'%',                   c: annPct>=100?'var(--accent)':'var(--gold)' },
+    { l:'Total Trades',  v: selTrades.length,                        c: 'var(--text)' },
   ];
   document.getElementById('lpKpis').innerHTML = kpis.map(k =>
     `<div class="lp-kpi"><div class="lk-l">${k.l}</div><div class="lk-v" style="color:${k.c}">${k.v}</div></div>`
