@@ -336,7 +336,14 @@ input[type=range].zslider::-webkit-slider-thumb {
   <div class="logo">Trade Analyzer Pro</div>
   <div class="drop-box" id="dropZone">
     <input type="file" id="fileInput" accept=".csv,.txt" style="display:none">
-    <div style="font-size:48px;margin-bottom:20px;opacity:.4">📊</div>
+    <div style="margin-bottom:20px;opacity:.4">
+      <svg width="52" height="52" viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="4" y="28" width="10" height="18" rx="2" fill="#00d4aa"/>
+        <rect x="21" y="18" width="10" height="28" rx="2" fill="#4f9eff"/>
+        <rect x="38" y="8" width="10" height="38" rx="2" fill="#00d4aa"/>
+        <line x1="2" y1="48" x2="50" y2="48" stroke="#546a87" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </div>
     <div class="drop-title">Drop your Option Omega CSV here</div>
     <div class="drop-sub" style="margin-bottom:24px">
       Detailed format with columns:<br>
@@ -361,7 +368,7 @@ input[type=range].zslider::-webkit-slider-thumb {
       transition: all .2s;
       display: flex; align-items: center; gap: 10px; margin: 0 auto;
     " onmouseover="this.style.background='rgba(0,212,170,.16)'" onmouseout="this.style.background='rgba(0,212,170,.08)'">
-      <span style="font-size:20px">▶</span>
+      <span style="font-size:16px;line-height:1">&#9654;</span>
       <span>Load Demo Portfolio</span>
     </button>
     <div style="font-size:11px;color:var(--muted);margin-top:10px;line-height:1.6">
@@ -2363,14 +2370,14 @@ function loadDemo() {
 
       document.getElementById('uploadScreen').style.display = 'none';
       document.getElementById('mainScreen').style.display   = 'block';
-      document.getElementById('fLabel').textContent = '📊 Demo Portfolio';
+      document.getElementById('fLabel').textContent = '[Demo Portfolio]';
 
       renderPortfolio();
     })
     .catch(err => {
-      btn.innerHTML = '<span style="font-size:20px">▶</span><span>Load Demo Portfolio</span>';
+      btn.innerHTML = '<span style="font-size:16px">&#9654;</span><span>Load Demo Portfolio</span>';
       btn.disabled = false;
-      errEl.textContent = '⚠ ' + err.message;
+      errEl.textContent = '[!] ' + err.message;
       errEl.style.display = 'block';
     });
 }
@@ -2399,7 +2406,7 @@ function processFile(file) {
       renderPortfolio();
     } catch(err) {
       const el=document.getElementById('errMsg');
-      el.textContent='⚠ '+err.message;
+      el.textContent='[!] '+err.message;
       el.style.display='block';
       console.error(err);
     }
@@ -2923,7 +2930,7 @@ Struttura la risposta con sezioni chiare. Sii diretto e pratico, come un profess
         msg = 'Connessione fallita (CORS/rete). Prova ad aprire il file su un server locale or usa la versione su claude.ai.';
       }
     }
-    errEl.textContent = '⚠ ' + msg;
+    errEl.textContent = '[!] ' + msg;
     errEl.style.display = 'block';
     console.error('AI error:', err);
   } finally {
