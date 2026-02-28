@@ -2149,7 +2149,7 @@ function scaledTrades(t) {
   return { ...t, pl: t.pl * sz, margin: (t.margin || 0) * sz };
 }
 
-function getSelScaledTradess() {
+function getSelScaledTrades() {
   const base = window._G || G;
   const sel = window._selectedStrats || new Set(base.strategies);
   return base.trades.filter(t => sel.has(t.strategy)).map(scaledTrades);
@@ -2235,16 +2235,16 @@ function updateLivePanel() {
   if (!sel.size) return;
 
   // Compute stats for selected set (with size scaling)
-  const selTradess = getSelScaledTradess();
-  const st = calcStats(selTradess, 'Sel');
+  const selTrades = getSelScaledTrades();
+  const st = calcStats(selTrades, 'Sel');
 
   // Max daily margin for selected strategies only (scaled)
-  const selDailyMargin = buildDailyMarginsForTradess(selTradess);
+  const selDailyMargin = buildDailyMarginsForTrades(selTrades);
   const selMaxMargin = selDailyMargin.max || 0;
   const selCapBase = selMaxMargin + Math.abs(st.maxDD) * 2;
   const avgMonthly = (() => {
     const monthly = {};
-    selTradess.forEach(t => {
+    selTrades.forEach(t => {
       const d = t.dateClose || t.dateOpen; if (!d) return;
       const k = d.getFullYear() + '-' + d.getMonth();
       monthly[k] = (monthly[k] || 0) + t.pl;
@@ -2269,7 +2269,7 @@ function updateLivePanel() {
   ).join('');
 }
 
-function buildDailyMarginsForTradess(trades) {
+function buildDailyMarginsForTrades(trades) {
   const map = {};
   trades.forEach(t => {
     if (!t.dateOpen || !t.margin) return;
@@ -2290,9 +2290,9 @@ function buildDailyMarginsForTradess(trades) {
 function viewSelectedInDetail() {
   const sel = window._selectedStrats;
   if (!sel || !sel.size) return;
-  const selTradess = getSelScaledTradess();
-  if (!selTradess.length) return;
-  G = buildGlobal(selTradess);
+  const selTrades = getSelScaledTrades();
+  if (!selTrades.length) return;
+  G = buildGlobal(selTrades);
   const stratSel = document.getElementById('stratSelect');
   const tf = document.getElementById('tradeFilter');
   stratSel.innerHTML = G.strategies.map(s=>`<option value="${s.replace(/"/g,'&quot;')}">${shortStrat(s)}</option>`).join('');
