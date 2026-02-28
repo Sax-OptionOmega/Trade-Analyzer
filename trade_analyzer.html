@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Trades Analyzer Pro</title>
+<title>Trade Analyzer Pro</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap');
 :root {
@@ -380,10 +380,10 @@ input[type=range].zslider::-webkit-slider-thumb {
     <button onclick="exitSubPortfolio()" style="background:none;border:1px solid var(--accent);border-radius:5px;padding:3px 10px;color:var(--accent);cursor:pointer;font-size:10px;font-family:'Space Mono',monospace;">&#10005; Back to full portfolio</button>
   </div>
   <div class="top-bar">
-    <div class="app-title">Trades Analyzer Pro</div>
+    <div class="app-title">Trade Analyzer Pro</div>
     <div class="top-right">
       <span class="fname" id="fLabel"></span>
-      <button class="btn-back" onclick="showUpload()">← Nuovo file</button>
+      <button class="btn-back" onclick="showUpload()">← New file</button>
     </div>
   </div>
 
@@ -607,7 +607,7 @@ input[type=range].zslider::-webkit-slider-thumb {
   <div class="tab-content" id="tab-ai">
 
     <div class="ai-section">
-      <div class="sec">API Key Anthropic</div>
+      <div class="sec">Anthropic API Key</div>
       <div class="apikey-box">
         <label>API KEY</label>
         <input type="password" class="apikey-input" id="apiKeyInput"
@@ -616,12 +616,12 @@ input[type=range].zslider::-webkit-slider-thumb {
         <button class="apikey-toggle" onclick="toggleApiKeyVis()" id="apiKeyToggle" title="Mostra/Nascondi">&#128065;</button>
         <button class="apikey-toggle" onclick="saveApiKey()" id="apiKeySaveBtn" title="Save chiave">Save</button>
         <button class="apikey-toggle" onclick="clearApiKey()" title="Cancella chiave salvata" style="color:var(--red)">&#10005;</button>
-        <span class="apikey-status" id="apiKeyStatus" style="color:var(--muted)">Non inserita</span>
+        <span class="apikey-status" id="apiKeyStatus" style="color:var(--muted)">Not set</span>
       </div>
       <div class="apikey-hint">
-        The key is used only for direct calls from your browser all&#39;API Anthropic — non transita per nessun server.
-        Ottieni la tua chiave su <a href="https://console.anthropic.com/settings/keys" target="_blank">console.anthropic.com</a>.
-        Viene tenuta in memoria solo per questa sessione. Not needed when using claude.ai.
+        The key is used only for direct calls from your browser to the Anthropic API — never sent to any server.
+        Get your key at <a href="https://console.anthropic.com/settings/keys" target="_blank">console.anthropic.com</a>.
+        Stored in memory for this session only. Not needed when using claude.ai.
       </div>
     </div>
 
@@ -632,9 +632,9 @@ input[type=range].zslider::-webkit-slider-thumb {
         <button class="ai-scope-btn" data-scope="strategies">Strategy Comparison</button>
         <button class="ai-scope-btn" data-scope="vix">VIX &amp; Regime Analysis</button>
         <button class="ai-scope-btn" data-scope="risk">Risk Management</button>
-        <button class="ai-scope-btn" data-scope="improve">Improvement Tips Miglioramento</button>
+        <button class="ai-scope-btn" data-scope="improve">Improvement Tips</button>
         <button class="ai-scope-btn" data-scope="optimizer" style="border-color:var(--gold);color:var(--gold)">Optimize Portfolio</button>
-        <button class="ai-scope-btn" data-scope="custom" style="border-color:#a78bfa;color:#a78bfa">Domanda Personalizzata</button>
+        <button class="ai-scope-btn" data-scope="custom" style="border-color:#a78bfa;color:#a78bfa">Custom Question</button>
       </div>
     </div>
 
@@ -2643,7 +2643,7 @@ function updateApiKeyStatus() {
   const val = document.getElementById('apiKeyInput').value.trim();
   const status = document.getElementById('apiKeyStatus');
   if (!val) {
-    status.textContent = 'Non inserita'; status.style.color = 'var(--muted)';
+    status.textContent = 'Not set'; status.style.color = 'var(--muted)';
   } else if (val.startsWith('sk-ant-')) {
     status.textContent = 'Valida \u2713'; status.style.color = 'var(--accent)';
   } else {
@@ -2899,7 +2899,7 @@ Struttura la risposta con sezioni chiare. Sii diretto e pratico, come un profess
     const scopeLabels = {
       full: 'Full Portfolio', strategies: 'Strategy Comparison',
       vix: 'VIX & Regime Analysis', risk: 'Risk Management', improve: 'Improvement Tips',
-      optimizer: 'Portfolio Optimizer', custom: 'Domanda Personalizzata'
+      optimizer: 'Portfolio Optimizer', custom: 'Custom Question'
     };
 
     output.innerHTML = formatAIResponse(text) +
