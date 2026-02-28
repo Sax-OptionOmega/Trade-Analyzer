@@ -2745,7 +2745,7 @@ async function runAIAnalysis() {
   const apiKey2 = document.getElementById('apiKeyInput')?.value?.trim();
   const isClaudeAI = window.location.hostname.includes('claude.ai') || window.location.hostname === 'localhost';
   if (!apiKey2 && !isClaudeAI) {
-    errEl.textContent = '\u26a0 Enter your API key Anthropic nel campo qui sopra per usare questa funzione fuori da claude.ai';
+    errEl.textContent = '\u26a0 Enter your Anthropic API key in the field above to use this feature outside claude.ai';
     errEl.style.display = 'block';
     return;
   }
@@ -2942,7 +2942,7 @@ Struttura la risposta con sezioni chiare. Sii diretto e pratico, come un profess
     if (msg === 'Failed to fetch' || msg.includes('NetworkError') || msg.includes('fetch')) {
       const hasKey = !!document.getElementById('apiKeyInput')?.value?.trim();
       if (!hasKey) {
-        msg = 'Connessione fallita. Enter your API key Anthropic nel campo qui sopra.';
+        msg = 'Connection failed. Enter your Anthropic API key in the field above.';
       } else {
         msg = 'Connessione fallita (CORS/rete). Prova ad aprire il file su un server locale or usa la versione su claude.ai.';
       }
