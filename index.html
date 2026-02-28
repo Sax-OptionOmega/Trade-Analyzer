@@ -2810,16 +2810,16 @@ async function runAIAnalysis() {
     // Show progress steps
     if (isOptimizer) {
       showProgress([
-        'Collecting data strategies e margini',
+        'Collecting strategy and margin data',
         'Analyzing correlation matrix',
         'Computing per-strategy risk/reward metrics',
-        'Sending data all\u0027API Claude',
+        'Sending data to Claude API',
         'Generating optimal portfolios',
         'Processing response',
       ]);
       setStep(0);
     } else {
-      showProgress(['Preparing payload', 'Invio all\u0027API Claude', 'Processing response']);
+      showProgress(['Preparing payload', 'Sending to Claude API', 'Processing response']);
       setStep(0);
     }
 
