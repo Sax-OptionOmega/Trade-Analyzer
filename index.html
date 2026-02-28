@@ -2511,24 +2511,24 @@ function buildAnalysisPayload() {
       max_drawdown: Math.round(D.maxDD),
       avg_win: Math.round(D.avgWin),
       avg_loss: Math.round(D.avgLoss),
-      rendimento_mensile_medio: Math.round(avgMonthly),
-      rendimento_annuo_medio: Math.round(avgMonthly * 12),
+      avg_monthly_return: Math.round(avgMonthly),
+      avg_annual_return: Math.round(avgMonthly * 12),
     },
-    rendimento_annuale: Object.fromEntries(
+    annual_returns: Object.fromEntries(
       Object.entries(annual).map(([y,v]) => [y, {
         pl: Math.round(v),
         pct_su_capital: capitalBase ? +(v/capitalBase*100).toFixed(1) : null
       }])
     ),
     margini: {
-      max_margine_giornaliero: Math.round(mData.max||0),
-      margine_medio_giornaliero: Math.round(mData.avg||0),
+      max_daily_margin: Math.round(mData.max||0),
+      avg_daily_margin: Math.round(mData.avg||0),
       capital_base: Math.round(capitalBase),
-      rendimento_annuo_pct_su_capital: capitalBase ? +((avgMonthly*12)/capitalBase*100).toFixed(1) : null,
+      annual_return_pct_on_capital: capitalBase ? +((avgMonthly*12)/capitalBase*100).toFixed(1) : null,
       nota_0dte: `${D.trades.filter(t=>t.is0DTE).length} trades su ${D.trades.length} sono 0DTE: per questi il margine richiesto e' impostato alla perdita massima (max loss), senza leva.`,
-      max_strategies_contemporanee: mData.maxConcurrent || 0,
-      media_strategies_contemporanee: mData.avgConcurrent ? +mData.avgConcurrent.toFixed(1) : 0,
-      media_strategies_per_giorno: mData.dowStratAvg ? ['Mon','Tue','Wed','Thu','Fri'].reduce((o,d,i) => { o[d]=+(mData.dowStratAvg[i]||0).toFixed(1); return o; }, {}) : {},
+      max_concurrent_strategies: mData.maxConcurrent || 0,
+      avg_concurrent_strategies: mData.avgConcurrent ? +mData.avgConcurrent.toFixed(1) : 0,
+      avg_strategies_by_weekday: mData.dowStratAvg ? ['Mon','Tue','Wed','Thu','Fri'].reduce((o,d,i) => { o[d]=+(mData.dowStratAvg[i]||0).toFixed(1); return o; }, {}) : {},
     },
     vix_portfolio: D.vixSegs ? D.vixSegs.map(s => ({
       regime: s.label,
@@ -2560,11 +2560,11 @@ function buildAnalysisPayload() {
   }[depth];
 
   const scopeInstr = {
-    full:      'Perform a comprehensive analysis del portfolio: performance generale, qualità delle singole strategies, esposizione al VIX, gestione del rischio e margini.',
-    strategies:'Focus on comparing tra le singole strategies: quali funzionano meglio, quali sono sottoperformanti, quali hanno il miglior risk/reward.',
-    vix:       'Analyze how the portfolio e le singole strategies si comportano nei diversi regimi di volatilità VIX. Identifica dipendenze e vulnerabilità.',
-    risk:      'Risk management focused analysis: drawdown, margini, capital base, correlazione tra strategies, worst case scenarios.',
-    improve:   'Suggest concrete improvements e operativi: quali strategies potenziare, quali ridurre o eliminare, come ottimizzare l\u0027allocazione del capitale e gestire i regimi VIX.',
+    full:      'Perform a comprehensive portfolio analysis: overall performance, quality of individual strategies, VIX exposure, risk management and margins.',
+    strategies:'Focus on comparing individual strategies: which perform best, which are underperforming, which have the best risk/reward profile.',
+    vix:       'Analyze how the portfolio and individual strategies behave across different VIX volatility regimes. Identify dependencies and vulnerabilities.',
+    risk:      'Risk management focused analysis: drawdown, margins, capital base, strategy correlations, worst case scenarios.',
+    improve:   'Suggest concrete and actionable improvements: which strategies to strengthen, which to reduce or remove, how to optimize capital allocation and manage VIX regimes.',
     optimizer: '',
     custom:    (document.getElementById('customQuestion')?.value?.trim() || ''),
   }[scope];
@@ -2754,7 +2754,7 @@ async function runAIAnalysis() {
   if (document.querySelector('.ai-scope-btn.active')?.dataset.scope === 'custom') {
     const q = document.getElementById('customQuestion')?.value?.trim();
     if (!q) {
-      errEl.textContent = '\u26a0 Scrivi la tua domanda prima di avviare l\u0027analisi.';
+      errEl.textContent = '[!] Please write your question before running the analysis.';
       errEl.style.display = 'block';
       document.getElementById('customQuestion').focus();
       return;
@@ -2788,19 +2788,19 @@ async function runAIAnalysis() {
     }
 
     const systemPrompt = isOptimizer
-      ? `Sei un portfolio optimizer quantitativo specializzato in strategies di opzioni sistematiche su SPX/ES.
-Il tuo compito è analizzare un insieme di strategies di trading e proporre configurazioni di portfolio ottimali.
-CONTESTO IMPORTANTE: Si tratta prevalentemente di strategies 0 DTE (zero days to expiration) su SPX. Le opzioni SPX con scadenza giornaliera (0 DTE) sono disponibili su tutti i giorni di borsa solo a partire dal 16 maggio 2022. I dati precedenti a tale data potrebbero includere solo le scadenze settimanali del venerdì — tienilo presente nell'analisi della storia e nella valutazione statistica delle performance.
-Rispondi sempre in italiano. Usa ## per le sezioni principali, ### per i portfolio proposti.
-Usa **grassetto** per i valori numerici e i nomi delle strategies.
-Usa tabelle markdown (| col | col |) per mostrare la composizione dei portfolio proposti.
-Sii preciso, quantitativo e operativo. Ogni portfolio proposto deve avere una motivazione chiara basata sui dati.`
-      : `You are a quantitative analyst specializzato in strategies di opzioni su indici azionari (SPX, ES, NQ).
-Analizzi portafogli di trading sistematico con approccio data-driven e professionale.
-CONTESTO IMPORTANTE: Si tratta prevalentemente di strategies 0 DTE (zero days to expiration) su SPX. Le opzioni SPX con scadenza giornaliera (0 DTE) sono disponibili su tutti i giorni di borsa solo a partire dal 16 maggio 2022. I dati precedenti a tale data potrebbero includere solo le scadenze settimanali del venerdì — tienilo presente nell'interpretazione delle statistiche, nella frequenza dei trades e nella valutazione delle performance storiche. Non confrontare meccanicamente periodi pre e post maggio 2022 senza considerare questa discontinuità strutturale.
-Rispondi sempre in italiano. Usa ## per le sezioni principali, ### per le sottosezioni.
-Usa **grassetto** per i valori numerici importanti e *corsivo* per le annotazioni.
-Usa il simbolo backtick per evidenziare metriche specifiche come \`Sharpe: 6.2\` o \`Win Rate: 57%\`.`;
+      ? `You are a quantitative portfolio optimizer specializing in systematic SPX/ES options strategies.
+Your task is to analyze a set of trading strategies and propose optimal portfolio configurations.
+IMPORTANT CONTEXT: These are predominantly 0 DTE (zero days to expiration) strategies on SPX. Daily SPX 0 DTE expirations became available on all trading days only from May 16, 2022. Data prior to that date may only include weekly Friday expirations — keep this in mind when analyzing historical performance.
+Always respond in English. Use ## for main sections, ### for proposed portfolios.
+Use **bold** for numeric values and strategy names.
+Use markdown tables (| col | col |) to show the composition of proposed portfolios.
+Be precise, quantitative and actionable. Each proposed portfolio must have a clear data-driven rationale.`
+      : `You are a quantitative analyst specializing in index options strategies (SPX, ES, NQ).
+You analyze systematic trading portfolios with a data-driven and professional approach.
+IMPORTANT CONTEXT: These are predominantly 0 DTE (zero days to expiration) strategies on SPX. Daily SPX 0 DTE expirations became available on all trading days only from May 16, 2022. Data prior to that date may only include weekly Friday expirations — keep this in mind when interpreting statistics, trade frequency and historical performance. Do not mechanically compare pre and post May 2022 periods without accounting for this structural discontinuity.
+Always respond in English. Use ## for main sections, ### for subsections.
+Use **bold** for important numeric values and *italics* for annotations.
+Use backticks to highlight specific metrics like \`Sharpe: 6.2\` or \`Win Rate: 57%\`.`;
 
     let userPrompt;
 
@@ -2809,18 +2809,18 @@ Usa il simbolo backtick per evidenziare metriche specifiche come \`Sharpe: 6.2\`
       // Build rich optimizer payload
       const stratList = stats.strategies.map((s, i) => ({
         id: i + 1,
-        nome: s.nome,
+        name: s.nome,
         sharpe: s.sharpe,
         win_rate: s.win_rate_pct,
         profit_factor: s.profit_factor,
         max_drawdown: s.max_drawdown,
         avg_win: s.avg_win,
         avg_loss: s.avg_loss,
-        pl_totale: s.pl_totale,
+        total_pl: s.pl_totale,
         return_on_margin_pct: s.return_on_margin_pct,
-        margine_medio: stratMargins[s.nome] || 0,
-        vix_migliore: s.vix_regime_migliore,
-        vix_peggiore: s.vix_regime_peggiore,
+        avg_margin: stratMargins[s.nome] || 0,
+        best_vix_regime: s.vix_regime_migliore,
+        worst_vix_regime: s.vix_regime_peggiore,
       }));
 
       setStep(2);
@@ -2832,27 +2832,27 @@ Usa il simbolo backtick per evidenziare metriche specifiche come \`Sharpe: 6.2\`
             row[j+1] = corrMatrix[i][j];
           }
         });
-        return { id: i+1, nome_breve: s.nome.slice(0,30), correlazioni_con: row };
+        return { id: i+1, short_name: s.nome.slice(0,30), correlations_with: row };
       }) : [];
 
-      userPrompt = `Hai a disposizione ${stratList.length} strategies di trading in opzioni 0 DTE su SPX.
-NOTA STORICA: Le scadenze giornaliere 0 DTE su SPX sono disponibili solo dal 16/05/2022. I dati precedenti a quella data hanno frequenza ridotta (solo venerdì). Considera questa discontinuità nell'analisi statistica.
-Your objective è propose 3 optimal portfolios selezionando un sottoinsieme di queste strategies e assegnando una SIZE (moltiplicatore intero >= 1) a ciascuna.
+      userPrompt = `You have ${stratList.length} SPX 0 DTE options trading strategies available.
+HISTORICAL NOTE: Daily 0 DTE expirations on SPX are available only from 05/16/2022. Data prior to that date has reduced frequency (Fridays only). Account for this discontinuity in statistical analysis.
+Your objective is to propose 3 optimal portfolios by selecting a subset of these strategies and assigning a SIZE (integer multiplier >= 1) to each.
 
-VINCOLI IMPORTANTI:
-- La SIZE minima per ogni strategia inclusa è 1 (non puoi ridurla sotto 1)
-- Puoi aumentare la size a 2, 3, 4... per le strategies con miglior risk/reward
-- Puoi escludere strategies che peggiorano il profilo rischio/rendimento
-- Il margine totale del portfolio = somma(margine_medio × size) per ogni strategia inclusa
-- Obiettivo: massimizzare Sharpe ratio e Return/Margin minimizing positive correlations tra le strategies incluse
+IMPORTANT CONSTRAINTS:
+- Minimum SIZE for each included strategy is 1 (cannot go below 1)
+- You can increase size to 2, 3, 4... for strategies with better risk/reward
+- You can exclude strategies that worsen the risk/return profile
+- Total portfolio margin = sum(avg_margin × size) for each included strategy
+- Objective: maximize Sharpe ratio and Return/Margin while minimizing positive correlations between included strategies
 
-DATI STRATEGIE:
+STRATEGY DATA:
 ${JSON.stringify(stratList, null, 2)}
 
-MATRICE DI CORRELAZIONE (ID strategia → ID strategia → coefficiente):
+CORRELATION MATRIX (strategy ID → strategy ID → coefficient):
 ${JSON.stringify(corrTable, null, 2)}
 
-PORTFOLIO ATTUALE (riferimento):
+CURRENT PORTFOLIO (reference):
 - Capital base: $${stats.margini.capital_base.toLocaleString()}
 - Sharpe complessivo: ${stats.portfolio.sharpe_ratio}
 - Max Drawdown: $${Math.abs(stats.portfolio.max_drawdown).toLocaleString()}
@@ -2860,11 +2860,11 @@ PORTFOLIO ATTUALE (riferimento):
 
 INSTRUCTIONS:
 For each of the 3 proposed portfolios provide:
-1. A table with EXACTLY these columns: | ID | Strategy | Size | Motivazione |
+1. A table with EXACTLY these columns: | ID | Strategy | Size | Rationale |
    - ID: the exact integer from the field "id" dei dati strategies (es. 1, 2, 3...)
    - Strategy: the EXACT name from the field "nome" without modifications or abbreviations
    - Size: intero >= 1
-   - Motivazione: breve
+   - Rationale: brief
 2. Estimated metrics: Expected Sharpe, total margin, VIX profile, estimated max drawdown
 3. Selection rationale
 4. Specific risks
@@ -2882,17 +2882,17 @@ ${depthInstr}`;
       setStep(1);
       userPrompt = `${scopeInstr}
 
-Ecco i dati statistici del portfolio di trading in opzioni 0 DTE su SPX (nota: le scadenze giornaliere 0 DTE sono attive dal 16/05/2022):
+Here are the statistical data for the SPX 0 DTE options trading portfolio (note: daily 0 DTE expirations active from 05/16/2022):
 
 ${JSON.stringify(stats, null, 2)}
 
 ${depthInstr}
 
-Struttura la risposta con sezioni chiare. Sii diretto e pratico, come un professionista che parla con un altro tradesr esperto.`;
+Struttura la risposta con sezioni chiare. Sii diretto e pratico, as a professional speaking with another expert trader.`;
     }
 
     if (isOptimizer) { setStep(3); } else { setStep(1); }
-    loadTxt.textContent = 'Connessione all\u0027API Claude\u2026';
+    loadTxt.textContent = 'Connecting to Claude API…';
 
     const apiKey = document.getElementById('apiKeyInput')?.value?.trim();
 
@@ -2925,7 +2925,7 @@ Struttura la risposta con sezioni chiare. Sii diretto e pratico, come un profess
     const data = await response.json();
     const text = data.content?.find(b => b.type === 'text')?.text || '';
 
-    if (!text) throw new Error('Risposta vuota dall\u0027API');
+    if (!text) throw new Error('Empty response from API');
 
     const scopeLabels = {
       full: 'Full Portfolio', strategies: 'Strategy Comparison',
@@ -2934,7 +2934,7 @@ Struttura la risposta con sezioni chiare. Sii diretto e pratico, come un profess
     };
 
     output.innerHTML = formatAIResponse(text) +
-      `<div class="ai-meta">Analysis: ${scopeLabels[scope]} · Model: claude-sonnet-4 · ${new Date().toLocaleString('it-IT')}</div>`;
+      `<div class="ai-meta">Analysis: ${scopeLabels[scope]} · Model: claude-sonnet-4 · ${new Date().toLocaleString('en-US')}</div>`;
     output.style.display = 'block';
 
   } catch(err) {
@@ -2944,7 +2944,7 @@ Struttura la risposta con sezioni chiare. Sii diretto e pratico, come un profess
       if (!hasKey) {
         msg = 'Connection failed. Enter your Anthropic API key in the field above.';
       } else {
-        msg = 'Connessione fallita (CORS/rete). Prova ad aprire il file su un server locale or usa la versione su claude.ai.';
+        msg = 'Connection failed (CORS). Open the file via a local server or use the GitHub Pages version.';
       }
     }
     errEl.textContent = '[!] ' + msg;
