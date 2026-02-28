@@ -1013,7 +1013,7 @@ function renderPortfolio() {
     ).join('');
 
   // Deferred charts
-  setTimeout(()=>{
+  requestAnimationFrame(() => requestAnimationFrame(() => {
     drawEqChart('eqChart', D.equity, D.eqDates, D.dd);
     // annChart drawn later with capitalBase after margin calc
     drawDoubleBar('dowChart', buildDOW(D.trades));
@@ -1042,7 +1042,7 @@ function renderPortfolio() {
     drawMarginDistChart('marginDistChart', mData);
     // Match monthly table height to right column
     requestAnimationFrame(() => requestAnimationFrame(() => matchMonthlyHeight()));
-  }, 50);
+  }));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1077,7 +1077,8 @@ function renderStrategies() {
   }).join('');
   updateLivePanel();
 
-  setTimeout(()=>{
+  // Double rAF ensures the tab is fully painted before reading clientWidth
+  requestAnimationFrame(() => requestAnimationFrame(() => {
     drawMultiEqChart('stratEqChart');
     drawHorizBar('wrChart', D.strategies.map(s=>({label:shortStrat(s),value:D.stratStats[s].winRate,color:D.stratStats[s].color})), 100, '%');
     drawHorizBar('plChart', D.strategies.map(s=>({label:shortStrat(s),value:D.stratStats[s].pl,color:D.stratStats[s].color})), null, '$');
@@ -1087,7 +1088,7 @@ function renderStrategies() {
     window._corrMatrix = corr;
     drawCorrHeatmap(D.strategies, corr);
     renderCorrPairs(D.strategies, corr);
-  }, 50);
+  }));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1110,11 +1111,11 @@ function renderVIX() {
   const hmHTML = buildVIXHeatmap();
   document.getElementById('vixHeatmap').innerHTML = hmHTML;
 
-  setTimeout(()=>{
+  requestAnimationFrame(() => requestAnimationFrame(() => {
     drawVIXBars('vixPortChart', D.vixSegs, 'avgPL', 'Avg P/L per Trades ($)');
     drawVIXBars('vixWrChart', D.vixSegs, 'winRate', 'Win Rate (%)');
     drawVIXDistChart('vixDistChart');
-  }, 50);
+  }));
 }
 
 function buildVIXHeatmap() {
@@ -1185,7 +1186,7 @@ function renderDetail() {
       `<div class="reason-pill"><div class="rp-v">${n}</div><div class="rp-l">${r}</div></div>`
     ).join('');
 
-  setTimeout(()=>{
+  requestAnimationFrame(() => requestAnimationFrame(() => {
     // Equity
     const byC = [...ts].sort((a,b)=>(a.dateClose||a.dateOpen)-(b.dateClose||b.dateOpen));
     let cum=0, eq=[], dd=[], pk=-Infinity;
@@ -1195,7 +1196,7 @@ function renderDetail() {
     drawVIXBars('dVixChart', st.vixSegs, 'avgPL', 'Avg P/L ($)', true);
     drawDoubleBar('dDowChart', buildDOW(ts));
     drawDoubleBar('dMoyChart', buildMOY(ts));
-  }, 50);
+  }));
 }
 
 function goToDetail(s) {
@@ -1292,7 +1293,7 @@ function renderMarginKpis(m) {
     {c:'p', l:'Trading Days',             v:m.days.length,                                              s:'Days with at least 1 open position'},
     {c:'r', l:'Max Concurrent Strategies',  v:m.maxConcurrent,                                            s:'All-time peak in un singolo giorno'},
     {c:'b', l:'Avg Concurrent Strategies',v:m.avgConcurrent.toFixed(1),                                 s:'Daily average across all trading days'},
-    {c:'o', l:'Busiest Day',         v:dn[miStrat]+' · '+m.dowStratAvg[miStrat].toFixed(1),        s:'Weekday with most active strategies on average'},
+    {c:'o', l:'Peak Concurrent Day',  v:dn[miStrat]+' · '+m.dowStratAvg[miStrat].toFixed(1),        s:'Avg no. of strategies open simultaneously'},
   ].map(k=>`<div class="kpi ${k.c}"><div class="kpi-l">${k.l}</div><div class="kpi-v">${k.v}</div><div class="kpi-s">${k.s}</div></div>`).join('');
 }
 
