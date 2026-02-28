@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Trade Analyzer Pro</title>
+<title>Trades Analyzer Pro</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap');
 :root {
@@ -337,14 +337,39 @@ input[type=range].zslider::-webkit-slider-thumb {
   <div class="drop-box" id="dropZone">
     <input type="file" id="fileInput" accept=".csv,.txt" style="display:none">
     <div style="font-size:48px;margin-bottom:20px;opacity:.4">📊</div>
-    <div class="drop-title">Trascina il file CSV di Option Omega</div>
+    <div class="drop-title">Drop your Option Omega CSV here</div>
     <div class="drop-sub" style="margin-bottom:24px">
-      Formato dettagliato con colonne:<br>
+      Detailed format with columns:<br>
       <code>Strategy</code> · <code>P/L</code> · <code>Opening VIX</code> · <code>Closing VIX</code> · <code>Margin Req.</code>
     </div>
-    <button class="browse-btn" onclick="document.getElementById('fileInput').click()">Scegli file…</button>
-    <div style="font-size:11px;color:var(--muted);margin-top:12px;font-family:'Space Mono',monospace">oppure trascina qui</div>
+    <button class="browse-btn" onclick="document.getElementById('fileInput').click()">Choose file…</button>
+    <div style="font-size:11px;color:var(--muted);margin-top:10px;font-family:'Space Mono',monospace">or drag & drop here</div>
   </div>
+
+  <div style="margin-top:20px;text-align:center">
+    <div style="font-size:11px;color:var(--muted);font-family:'Space Mono',monospace;letter-spacing:1px;margin-bottom:12px;text-transform:uppercase">— or try the live demo —</div>
+    <button onclick="loadDemo()" id="demoBtn" style="
+      background: rgba(0,212,170,.08);
+      border: 1px solid var(--accent);
+      border-radius: 10px;
+      padding: 14px 32px;
+      cursor: pointer;
+      color: var(--accent);
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+      letter-spacing: 1px;
+      transition: all .2s;
+      display: flex; align-items: center; gap: 10px; margin: 0 auto;
+    " onmouseover="this.style.background='rgba(0,212,170,.16)'" onmouseout="this.style.background='rgba(0,212,170,.08)'">
+      <span style="font-size:20px">▶</span>
+      <span>Load Demo Portfolio</span>
+    </button>
+    <div style="font-size:11px;color:var(--muted);margin-top:10px;line-height:1.6">
+      9 SPX strategies · 2,151 trades · 4 years of data<br>
+      <span style="color:rgba(0,212,170,.6)">No file needed — explore all features instantly</span>
+    </div>
+  </div>
+
   <div class="err-msg" id="errMsg"></div>
 </div>
 
@@ -352,10 +377,10 @@ input[type=range].zslider::-webkit-slider-thumb {
 <div id="mainScreen"><div id="zoomWrap">
   <div id="subPortBanner" style="display:none;background:rgba(0,212,170,.12);border-bottom:1px solid var(--accent);padding:8px 24px;align-items:center;justify-content:space-between;font-family:'Space Mono',monospace;font-size:11px;margin-bottom:0">
     <span style="color:var(--accent)">&#9670; SUB-PORTFOLIO: <span id="subPortLabel"></span></span>
-    <button onclick="exitSubPortfolio()" style="background:none;border:1px solid var(--accent);border-radius:5px;padding:3px 10px;color:var(--accent);cursor:pointer;font-size:10px;font-family:'Space Mono',monospace;">&#10005; Torna al portfolio completo</button>
+    <button onclick="exitSubPortfolio()" style="background:none;border:1px solid var(--accent);border-radius:5px;padding:3px 10px;color:var(--accent);cursor:pointer;font-size:10px;font-family:'Space Mono',monospace;">&#10005; Back to full portfolio</button>
   </div>
   <div class="top-bar">
-    <div class="app-title">Trade Analyzer Pro</div>
+    <div class="app-title">Trades Analyzer Pro</div>
     <div class="top-right">
       <span class="fname" id="fLabel"></span>
       <button class="btn-back" onclick="showUpload()">← Nuovo file</button>
@@ -364,11 +389,11 @@ input[type=range].zslider::-webkit-slider-thumb {
 
   <div class="tabs" id="tabs">
     <div class="tab active" data-tab="portfolio">Portfolio</div>
-    <div class="tab" data-tab="strategies">Strategie</div>
-    <div class="tab" data-tab="vix">Analisi VIX</div>
-    <div class="tab" data-tab="detail">Dettaglio Strategia</div>
+    <div class="tab" data-tab="strategies">Strategies</div>
+    <div class="tab" data-tab="vix">VIX Analysis</div>
+    <div class="tab" data-tab="detail">Strategy Detail</div>
     <div class="tab" data-tab="trades">Trade Log</div>
-    <div class="tab" data-tab="ai">Analisi AI</div>
+    <div class="tab" data-tab="ai">AI Analysis</div>
   </div>
 
   <!-- ── TAB: PORTFOLIO ── -->
@@ -378,53 +403,53 @@ input[type=range].zslider::-webkit-slider-thumb {
     <div class="card"><div class="cw"><canvas id="eqChart" height="220"></canvas></div></div>
     <div class="g2" id="monthlyGrid" style="align-items:start">
       <div id="monthlyCol">
-        <div class="sec">Rendimento Mensile</div>
+        <div class="sec">Monthly Performance</div>
         <div class="card" id="monthlyCard" style="overflow-y:auto">
-          <table class="tbl"><thead><tr><th>Mese</th><th class="r">P/L ($)</th><th class="r">Trade</th><th class="r">Win%</th></tr></thead>
+          <table class="tbl"><thead><tr><th>Month</th><th class="r">P/L ($)</th><th class="r">Trades</th><th class="r">Win%</th></tr></thead>
           <tbody id="mTbl"></tbody></table>
         </div>
       </div>
       <div id="annualCol">
-        <div class="sec">Rendimento Annuale</div>
+        <div class="sec">Annual Performance</div>
         <div class="card"><div class="cw"><canvas id="annChart" height="200"></canvas></div></div>
-        <div class="sec">Ragioni di Chiusura</div>
+        <div class="sec">Ragioni di Close</div>
         <div class="card"><div class="reason-grid" id="reasonGrid"></div></div>
       </div>
     </div>
     <div class="g2">
       <div>
-        <div class="sec">P/L Medio per Giorno della Settimana</div>
+        <div class="sec">Avg P/L by Day of Week</div>
         <div class="card"><div class="cw"><canvas id="dowChart" height="180"></canvas></div></div>
       </div>
       <div>
-        <div class="sec">P/L Medio per Mese dell'Anno</div>
+        <div class="sec">Avg P/L per Month dell'Anno</div>
         <div class="card"><div class="cw"><canvas id="moyChart" height="180"></canvas></div></div>
       </div>
     </div>
 
-    <div class="sec">Analisi Margini</div>
+    <div class="sec">Margin Analytics</div>
     <div class="kpi-grid" id="marginKpis"></div>
     <div class="g2">
       <div>
-        <div class="sec">Margine Giornaliero nel Tempo</div>
+        <div class="sec">Daily Margin Over Time</div>
         <div class="card"><div class="cw"><canvas id="marginTimeChart" height="200"></canvas></div></div>
       </div>
       <div>
-        <div class="sec">Margine Medio e Massimo per Giorno della Settimana</div>
+        <div class="sec">Average & Max Margin by Day of Week</div>
         <div class="card"><div class="cw"><canvas id="marginDowChart" height="200"></canvas></div></div>
       </div>
     </div>
     <div class="g2">
       <div>
-        <div class="sec">Strategie Attive Contemporaneamente — Distribuzione</div>
+        <div class="sec">Concurrent Active Strategies — Distribution</div>
         <div class="card"><div class="cw"><canvas id="concurrentDistChart" height="160"></canvas></div></div>
       </div>
       <div>
-        <div class="sec">Media Strategie Attive per Giorno della Settimana</div>
+        <div class="sec">Average Active Strategies by Day of Week</div>
         <div class="card"><div class="cw"><canvas id="concurrentDowChart" height="160"></canvas></div></div>
       </div>
     </div>
-    <div class="sec">Distribuzione Margine Giornaliero</div>
+    <div class="sec">Daily Margin Distribution</div>
     <div class="card"><div class="cw"><canvas id="marginDistChart" height="160"></canvas></div></div>
   </div>
 
@@ -434,25 +459,25 @@ input[type=range].zslider::-webkit-slider-thumb {
     <!-- Live Portfolio Panel -->
     <div id="livePanel">
       <div class="lp-title">
-        <span>Portfolio Selezionato — <span id="lpCount">0</span> strategie</span>
+        <span>Selected Portfolio — <span id="lpCount">0</span> strategies</span>
         <div class="lp-actions">
-          <button class="lp-btn" onclick="selectAllStrategies(true)">Seleziona tutto</button>
-          <button class="lp-btn" onclick="selectAllStrategies(false)">Deseleziona tutto</button>
-          <button class="lp-btn primary" onclick="viewSelectedInDetail()">Vedi dettaglio →</button>
+          <button class="lp-btn" onclick="selectAllStrategies(true)">Select all</button>
+          <button class="lp-btn" onclick="selectAllStrategies(false)">Deselect all</button>
+          <button class="lp-btn primary" onclick="viewSelectedInDetail()">View detail →</button>
         </div>
       </div>
       <div class="lp-kpis" id="lpKpis"></div>
     </div>
 
-    <div class="sec">Confronto Strategie</div>
+    <div class="sec">Strategy Comparison</div>
     <div class="card">
       <div class="scroll-tbl" style="max-height:none">
         <table class="tbl" id="stratTbl">
           <thead><tr>
-            <th style="width:28px"><input type="checkbox" class="strat-cb" id="cbAll" onclick="toggleAllCb(this)" title="Seleziona/deseleziona tutto"></th>
-            <th>Strategia</th>
-            <th class="r" title="Moltiplicatore contratti (min 1)" style="width:44px">Size</th>
-            <th class="r">Trade</th><th class="r">P/L Tot</th>
+            <th style="width:28px"><input type="checkbox" class="strat-cb" id="cbAll" onclick="toggleAllCb(this)" title="Select/deselect all"></th>
+            <th>Strategy</th>
+            <th class="r" title="Contract multiplier (min 1)" style="width:44px">Size</th>
+            <th class="r">Trades</th><th class="r">Total P/L</th>
             <th class="r">Win%</th><th class="r">Avg Win</th><th class="r">Avg Loss</th>
             <th class="r">PF</th><th class="r">Sharpe*</th><th class="r">Max DD</th>
             <th class="r">ROMargin%</th>
@@ -461,23 +486,23 @@ input[type=range].zslider::-webkit-slider-thumb {
         </table>
       </div>
     </div>
-    <div class="sec">Equity Curve per Strategia</div>
+    <div class="sec">Equity Curve per Strategy</div>
     <div class="card"><div class="cw"><canvas id="stratEqChart" height="240"></canvas></div></div>
     <div class="g3">
       <div>
-        <div class="sec">Win Rate per Strategia</div>
+        <div class="sec">Win Rate by Strategy</div>
         <div class="card"><div class="cw"><canvas id="wrChart" height="220"></canvas></div></div>
       </div>
       <div>
-        <div class="sec">P/L Totale per Strategia</div>
+        <div class="sec">Total P/Lale per Strategy</div>
         <div class="card"><div class="cw"><canvas id="plChart" height="220"></canvas></div></div>
       </div>
       <div>
-        <div class="sec">Return on Margin per Strategia</div>
+        <div class="sec">Return on Margin per Strategy</div>
         <div class="card"><div class="cw"><canvas id="romChart" height="220"></canvas></div></div>
       </div>
     </div>
-    <div class="sec">Matrice di Correlazione tra Strategie</div>
+    <div class="sec">Correlation Matrix tra Strategie</div>
     <div class="card">
       <div class="cw" id="corrHeatmapWrap">
         <canvas id="corrCanvas"></canvas>
@@ -501,7 +526,7 @@ input[type=range].zslider::-webkit-slider-thumb {
     <div class="kpi-grid" id="vixKpis"></div>
     <div class="g2">
       <div>
-        <div class="sec">P/L Medio per Regime VIX — Portafoglio</div>
+        <div class="sec">Avg P/L per Regime VIX — Portafoglio</div>
         <div class="card"><div class="cw"><canvas id="vixPortChart" height="220"></canvas></div></div>
       </div>
       <div>
@@ -509,7 +534,7 @@ input[type=range].zslider::-webkit-slider-thumb {
         <div class="card"><div class="cw"><canvas id="vixWrChart" height="220"></canvas></div></div>
       </div>
     </div>
-    <div class="sec">Heatmap VIX — P/L Medio per Strategia × Regime</div>
+    <div class="sec">Heatmap VIX — Avg P/L per Strategy × Regime</div>
     <div class="card">
       <div class="cw" id="vixHeatmap"></div>
     </div>
@@ -525,7 +550,7 @@ input[type=range].zslider::-webkit-slider-thumb {
     <div class="kpi-grid" id="dKpis"></div>
     <div class="g3-1" style="align-items:start">
       <div>
-        <div class="sec">Equity Curve Strategia</div>
+        <div class="sec">Equity Curve Strategy</div>
         <div class="card"><div class="cw"><canvas id="dEqChart" height="200"></canvas></div></div>
       </div>
       <div>
@@ -535,7 +560,7 @@ input[type=range].zslider::-webkit-slider-thumb {
     </div>
     <div class="g2" style="margin-top:16px">
       <div>
-        <div class="sec">Distribuzione P/L Trade</div>
+        <div class="sec">P/L Distribution Trades</div>
         <div class="card"><div class="cw"><canvas id="dDistChart" height="180"></canvas></div></div>
       </div>
       <div>
@@ -545,15 +570,15 @@ input[type=range].zslider::-webkit-slider-thumb {
     </div>
     <div class="g2">
       <div>
-        <div class="sec">P/L Medio per Giorno</div>
+        <div class="sec">Avg P/L by Day</div>
         <div class="card"><div class="cw"><canvas id="dDowChart" height="180"></canvas></div></div>
       </div>
       <div>
-        <div class="sec">P/L Medio per Mese</div>
+        <div class="sec">Avg P/L per Month</div>
         <div class="card"><div class="cw"><canvas id="dMoyChart" height="180"></canvas></div></div>
       </div>
     </div>
-    <div class="sec">Ragioni di Chiusura</div>
+    <div class="sec">Ragioni di Close</div>
     <div class="card"><div class="reason-grid" id="dReasons"></div></div>
   </div>
 
@@ -561,19 +586,19 @@ input[type=range].zslider::-webkit-slider-thumb {
   <div class="tab-content" id="tab-trades">
     <div style="display:flex;gap:12px;margin-bottom:16px;align-items:center;">
       <select class="strat-select" style="max-width:400px" id="tradeFilter" onchange="renderTradeLog()">
-        <option value="">Tutte le strategie</option>
+        <option value="">All strategies</option>
       </select>
-      <span style="font-size:11px;color:var(--muted)" id="tradeCount"></span>
+      <span style="font-size:11px;color:var(--muted)" id="tradesCount"></span>
     </div>
     <div class="card" style="max-height:600px;overflow-y:auto">
-      <table class="tbl" id="tradeTbl">
+      <table class="tbl" id="tradesTbl">
         <thead><tr>
-          <th>Data Ingresso</th><th>Data Uscita</th><th>Strategia</th>
+          <th>Data Ingresso</th><th>Data Uscita</th><th>Strategy</th>
           <th class="r">P/L</th><th class="r">P/L%</th>
           <th class="r">Margin</th><th class="r">VIX In</th><th class="r">VIX Out</th>
-          <th>Chiusura</th>
+          <th>Close</th>
         </tr></thead>
-        <tbody id="tradeBody"></tbody>
+        <tbody id="tradesBody"></tbody>
       </table>
     </div>
   </div>
@@ -589,26 +614,26 @@ input[type=range].zslider::-webkit-slider-thumb {
           placeholder="sk-ant-api03-..."
           oninput="updateApiKeyStatus()">
         <button class="apikey-toggle" onclick="toggleApiKeyVis()" id="apiKeyToggle" title="Mostra/Nascondi">&#128065;</button>
-        <button class="apikey-toggle" onclick="saveApiKey()" id="apiKeySaveBtn" title="Salva chiave">Salva</button>
+        <button class="apikey-toggle" onclick="saveApiKey()" id="apiKeySaveBtn" title="Save chiave">Save</button>
         <button class="apikey-toggle" onclick="clearApiKey()" title="Cancella chiave salvata" style="color:var(--red)">&#10005;</button>
         <span class="apikey-status" id="apiKeyStatus" style="color:var(--muted)">Non inserita</span>
       </div>
       <div class="apikey-hint">
-        La chiave viene usata solo per chiamate dirette dal tuo browser all&#39;API Anthropic — non transita per nessun server.
+        The key is used only for direct calls from your browser all&#39;API Anthropic — non transita per nessun server.
         Ottieni la tua chiave su <a href="https://console.anthropic.com/settings/keys" target="_blank">console.anthropic.com</a>.
-        Viene tenuta in memoria solo per questa sessione. Dentro claude.ai non serve inserirla.
+        Viene tenuta in memoria solo per questa sessione. Not needed when using claude.ai.
       </div>
     </div>
 
     <div class="ai-section">
-      <div class="sec">Tipo di Analisi</div>
+      <div class="sec">Analysis Type</div>
       <div class="ai-scope" id="aiScope">
-        <button class="ai-scope-btn active" data-scope="full">Portfolio Completo</button>
-        <button class="ai-scope-btn" data-scope="strategies">Confronto Strategie</button>
-        <button class="ai-scope-btn" data-scope="vix">Analisi VIX &amp; Regime</button>
+        <button class="ai-scope-btn active" data-scope="full">Full Portfolio</button>
+        <button class="ai-scope-btn" data-scope="strategies">Strategy Comparison</button>
+        <button class="ai-scope-btn" data-scope="vix">VIX &amp; Regime Analysis</button>
         <button class="ai-scope-btn" data-scope="risk">Risk Management</button>
-        <button class="ai-scope-btn" data-scope="improve">Suggerimenti Miglioramento</button>
-        <button class="ai-scope-btn" data-scope="optimizer" style="border-color:var(--gold);color:var(--gold)">Ottimizza Portfolio</button>
+        <button class="ai-scope-btn" data-scope="improve">Improvement Tips Miglioramento</button>
+        <button class="ai-scope-btn" data-scope="optimizer" style="border-color:var(--gold);color:var(--gold)">Optimize Portfolio</button>
         <button class="ai-scope-btn" data-scope="custom" style="border-color:#a78bfa;color:#a78bfa">Domanda Personalizzata</button>
       </div>
     </div>
@@ -616,7 +641,7 @@ input[type=range].zslider::-webkit-slider-thumb {
     <div class="ai-section" id="customQuestionBox" style="display:none">
       <div class="sec">La tua domanda</div>
       <textarea id="customQuestion"
-        placeholder="Es: In quale regime VIX le mie strategie iron condor tendono a perdere di più? Oppure: Qual è la strategia con il miglior rapporto rischio/rendimento considerando anche i margini richiesti?"
+        placeholder="Es: In quale regime VIX le mie strategies iron condor tendono a perdere di più? Oppure: Qual è la strategia con il miglior rapporto rischio/rendimento considerando anche i margini richiesti?"
         style="width:100%;min-height:90px;background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;font-family:'DM Sans',sans-serif;font-size:12px;color:var(--text);resize:vertical;outline:none;line-height:1.5;transition:border-color .2s"
         onfocus="this.style.borderColor='var(--accent)'"
         onblur="this.style.borderColor='var(--border)'"
@@ -630,17 +655,17 @@ input[type=range].zslider::-webkit-slider-thumb {
     <div id="aiLoading" style="display:none;background:var(--s2);border:1px solid var(--accent);border-radius:10px;padding:14px 20px;margin-bottom:16px">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
         <div class="ai-spinner"></div>
-        <span id="aiLoadingText" style="font-family:'Space Mono',monospace;font-size:12px;color:var(--accent)">Analisi in corso…</span>
+        <span id="aiLoadingText" style="font-family:'Space Mono',monospace;font-size:12px;color:var(--accent)">Analysis in progress…</span>
       </div>
       <div id="aiProgressSteps"></div>
     </div>
 
     <div class="ai-section" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
-      <button class="ai-btn" id="aiRunBtn" onclick="runAIAnalysis()">Avvia Analisi AI</button>
+      <button class="ai-btn" id="aiRunBtn" onclick="runAIAnalysis()">Run AI Analysis</button>
       <select class="ai-depth" id="aiDepth" title="Livello di dettaglio">
-        <option value="concise">Analisi Concisa</option>
-        <option value="detailed" selected>Analisi Dettagliata</option>
-        <option value="expert">Analisi Expert</option>
+        <option value="concise">Concise Analysis</option>
+        <option value="detailed" selected>Detailed Analysis</option>
+        <option value="expert">Expert Analysis</option>
       </select>
     </div>
 
@@ -672,8 +697,8 @@ const VIX_BANDS = [
   { label:'VIX 25-35',   min:25, max:35,  color:'rgba(255,77,106,.75)' },
   { label:'VIX > 35',    min:35, max:999, color:'rgba(182,109,255,.75)' },
 ];
-const MN = ['Gen','Feb','Mar','Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic'];
-const DN = ['Lun','Mar','Mer','Gio','Ven'];
+const MN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const DN = ['Mon','Tue','Wed','Thu','Fri'];
 
 let G = {}; // global data store
 
@@ -683,7 +708,7 @@ let G = {}; // global data store
 function parseCSV(text) {
   text = text.replace(/^\uFEFF/,'');
   const lines = text.split('\n').map(l=>l.trim().replace(/\r$/,'')).filter(l=>l);
-  if (lines.length < 2) throw new Error('File vuoto');
+  if (lines.length < 2) throw new Error('Empty file');
   // Strip only quotes, keep spaces for matching
   const headerRaw = splitLine(lines[0], ',').map(h=>h.replace(/"/g,'').trim());
   // Normalized (no spaces, lowercase) for matching
@@ -759,7 +784,7 @@ function parseCSV(text) {
       legs:      g('legs'),
     });
   }
-  if (!rows.length) throw new Error('Nessun trade valido trovato');
+  if (!rows.length) throw new Error('No valid trades found');
   rows.sort((a,b) => (a.dateOpen||0) - (b.dateOpen||0));
   return rows;
 }
@@ -942,16 +967,16 @@ function renderPortfolio() {
   const avgMonthly = D.monthlyArr.length ? D.monthlyArr.reduce((a,m)=>a+m.pl,0)/D.monthlyArr.length : 0;
   const avgAnnual  = avgMonthly * 12;
   document.getElementById('pKpis').innerHTML = [
-    {c:'g', l:'Equity Totale',          v:fmt$(D.pl),                         s:`${total} trade · ${num0DTE} 0DTE (${pct0DTE}% margine = max loss)`},
+    {c:'g', l:'Total Equity',          v:fmt$(D.pl),                         s:`${total} trades · ${num0DTE} 0DTE (${pct0DTE}% margine = max loss)`},
     {c:'b', l:'Win Rate',               v:D.winRate.toFixed(1)+'%',           s:`${wins.length}W / ${total-wins.length}L`},
     {c:'o', l:'Profit Factor',          v:isFinite(D.pf)?D.pf.toFixed(2):'∞',s:'Gross profit / Gross loss'},
-    {c:'r', l:'Max Drawdown',           v:fmt$(D.maxDD),                      s:'Sul portafoglio cumulato'},
-    {c:'p', l:'Sharpe Ratio',           v:D.sharpe.toFixed(2),                s:'Annualizzato per trade'},
-    {c:'g', l:'Rendimento Mensile Medio',v:fmt$(avgMonthly),                  s:`Media su ${D.monthlyArr.length} mesi reali`},
-    {c:'b', l:'Rendimento Annuo Medio', v:fmt$(avgAnnual),                    s:'Media mensile × 12'},
-    {c:'o', l:'Capital Base',           v:'calc…',                            s:'Max Margine + |MaxDD| × 2', id:'kCapBase'},
-    {c:'r', l:'Rend. % Annuo su Capital',v:'calc…',                           s:'Rend. annuo medio / Capital base', id:'kAnnPct'},
-    {c:'p', l:'Rend. % Mensile su Capital',v:'calc…',                         s:'Rend. mensile medio / Capital base', id:'kMonPct'},
+    {c:'r', l:'Max Drawdown',           v:fmt$(D.maxDD),                      s:'On cumulative portfolio'},
+    {c:'p', l:'Sharpe Ratio',           v:D.sharpe.toFixed(2),                s:'Annualized per trades'},
+    {c:'g', l:'Average Monthly Return',v:fmt$(avgMonthly),                  s:`Average over ${D.monthlyArr.length} real months`},
+    {c:'b', l:'Average Annual Return', v:fmt$(avgAnnual),                    s:'Monthly average × 12'},
+    {c:'o', l:'Capital Base',           v:'calc…',                            s:'Max Margin + |MaxDD| × 2', id:'kCapBase'},
+    {c:'r', l:'Annual Return % on Capital',v:'calc…',                           s:'Avg annual return / Capital base', id:'kAnnPct'},
+    {c:'p', l:'Monthly Return % on Capital',v:'calc…',                         s:'Avg monthly return / Capital base', id:'kMonPct'},
   ].map(k=>`<div class="kpi ${k.c}"${k.id?` id="${k.id}"`:''}>
     <div class="kpi-l">${k.l}</div><div class="kpi-v">${k.v}</div><div class="kpi-s">${k.s}</div></div>`).join('');
 
@@ -1024,7 +1049,7 @@ function renderStrategies() {
     return `<tr class="strat-row ${selCls}" id="row_${D.strategies.indexOf(s)}">
       <td onclick="event.stopPropagation()"><input type="checkbox" class="strat-cb" ${checked} onchange="onStratCbChange('${sEsc}',this)"></td>
       <td onclick="goToDetail('${sEsc}')"><span class="dot" style="background:${c}"></span><span title="${s}">${shortStrat(s)}</span></td>
-      <td onclick="event.stopPropagation()" class="tn"><input type="number" class="size-input" min="1" step="1" value="${sz}" onchange="onSizeChange('${sEsc}',this)" title="Size moltiplicatore (min 1)"></td>
+      <td onclick="event.stopPropagation()" class="tn"><input type="number" class="size-input" min="1" step="1" value="${sz}" onchange="onSizeChange('${sEsc}',this)" title="Size multiplier (min 1)"></td>
       <td class="tn">${st.trades.length}</td>
       <td class="${st.pl>=0?'tg':'tr'}">${fmt$(st.pl * sz)}</td>
       <td class="${st.winRate>=50?'tg':'tr'}">${st.winRate.toFixed(1)}%</td>
@@ -1062,7 +1087,7 @@ function renderVIX() {
     const cls = ['g','b','o','r','p'][i];
     return `<div class="kpi ${cls}">
       <div class="kpi-l">${b.label}</div>
-      <div class="kpi-v">${seg.count} trade</div>
+      <div class="kpi-v">${seg.count} trades</div>
       <div class="kpi-s">WR ${seg.winRate.toFixed(0)}% · Avg ${seg.avgPL>=0?'+':''}$${Math.round(Math.abs(seg.avgPL))}</div>
     </div>`;
   }).join('');
@@ -1072,7 +1097,7 @@ function renderVIX() {
   document.getElementById('vixHeatmap').innerHTML = hmHTML;
 
   setTimeout(()=>{
-    drawVIXBars('vixPortChart', D.vixSegs, 'avgPL', 'P/L Medio per Trade ($)');
+    drawVIXBars('vixPortChart', D.vixSegs, 'avgPL', 'Avg P/L per Trades ($)');
     drawVIXBars('vixWrChart', D.vixSegs, 'winRate', 'Win Rate (%)');
     drawVIXDistChart('vixDistChart');
   }, 50);
@@ -1084,7 +1109,7 @@ function buildVIXHeatmap() {
   const strategies = D.strategies;
 
   let html = `<div style="overflow-x:auto"><table class="tbl" style="min-width:700px">
-    <thead><tr><th>Strategia</th>${bands.map(b=>`<th class="r" style="font-size:9px">${b.label}</th>`).join('')}</tr></thead><tbody>`;
+    <thead><tr><th>Strategy</th>${bands.map(b=>`<th class="r" style="font-size:9px">${b.label}</th>`).join('')}</tr></thead><tbody>`;
 
   strategies.forEach(s => {
     const st = D.stratStats[s];
@@ -1116,7 +1141,7 @@ function renderDetail() {
 
   // KPIs
   document.getElementById('dKpis').innerHTML = [
-    {c:'g', l:'P/L Totale',    v:fmt$(st.pl),                 s:`${ts.length} trade`},
+    {c:'g', l:'Total P/Lale',    v:fmt$(st.pl),                 s:`${ts.length} trades`},
     {c:'b', l:'Win Rate',      v:st.winRate.toFixed(1)+'%',   s:`${ts.filter(t=>t.pl>0).length}W / ${ts.filter(t=>t.pl<0).length}L`},
     {c:'o', l:'Profit Factor', v:isFinite(st.pf)?st.pf.toFixed(2):'∞', s:'Gross profit / Gross loss'},
     {c:'r', l:'Max Drawdown',  v:fmt$(st.maxDD),              s:'Drawdown massimo'},
@@ -1128,14 +1153,14 @@ function renderDetail() {
   const worstT = ts.reduce((a,b)=>b.pl<a.pl?b:a,ts[0]);
   const avgVix = ts.filter(t=>t.vixOpen).reduce((a,t,_,arr)=>a+t.vixOpen/arr.length,0);
   document.getElementById('dStats').innerHTML = [
-    ['Trade totali', ts.length, 'n'],
+    ['Trades totali', ts.length, 'n'],
     ['Avg Win', fmt$s(st.avgWin), 'g'],
     ['Avg Loss', fmt$s(Math.abs(st.avgLoss)), 'r'],
     ['Sharpe Ratio', st.sharpe.toFixed(2), 'b'],
-    ['Best Trade', fmt$(bestT.pl)+' · '+fmtD(bestT.dateClose), 'g'],
-    ['Worst Trade', fmt$(worstT.pl)+' · '+fmtD(worstT.dateClose), 'r'],
+    ['Best Trades', fmt$(bestT.pl)+' · '+fmtD(bestT.dateClose), 'g'],
+    ['Worst Trades', fmt$(worstT.pl)+' · '+fmtD(worstT.dateClose), 'r'],
     ['VIX Medio Ingresso', avgVix.toFixed(1), 'n'],
-    ['Periodo', `${fmtD(ts[0]?.dateOpen)} — ${fmtD(ts[ts.length-1]?.dateClose)}`, 'n'],
+    ['Period', `${fmtD(ts[0]?.dateOpen)} — ${fmtD(ts[ts.length-1]?.dateClose)}`, 'n'],
   ].map(([l,v,c])=>`<div class="srow"><span class="srow-l">${l}</span><span class="srow-v sv-${c}">${v}</span></div>`).join('');
 
   // Reasons
@@ -1153,7 +1178,7 @@ function renderDetail() {
     byC.forEach(t=>{cum+=t.pl;eq.push(cum);pk=Math.max(pk,cum);dd.push(cum-pk);});
     drawEqChart('dEqChart', eq, byC.map(t=>t.dateClose||t.dateOpen), dd, st.color);
     drawDistChart('dDistChart', ts.map(t=>t.pl), st.color);
-    drawVIXBars('dVixChart', st.vixSegs, 'avgPL', 'P/L Medio ($)', true);
+    drawVIXBars('dVixChart', st.vixSegs, 'avgPL', 'Avg P/L ($)', true);
     drawDoubleBar('dDowChart', buildDOW(ts));
     drawDoubleBar('dMoyChart', buildMOY(ts));
   }, 50);
@@ -1171,9 +1196,9 @@ function goToDetail(s) {
 function renderTradeLog() {
   const filter = document.getElementById('tradeFilter').value;
   const trades = filter ? G.trades.filter(t=>t.strategy===filter) : G.trades;
-  document.getElementById('tradeCount').textContent = `${trades.length} trade`;
+  document.getElementById('tradesCount').textContent = `${trades.length} trades`;
   const sorted = [...trades].sort((a,b)=>(b.dateOpen||0)-(a.dateOpen||0));
-  document.getElementById('tradeBody').innerHTML = sorted.map(t => {
+  document.getElementById('tradesBody').innerHTML = sorted.map(t => {
     const pos=t.pl>=0; const c=G.stratColors[t.strategy];
     return `<tr>
       <td class="tm">${fmtD(t.dateOpen)} ${t.timeOpen}</td>
@@ -1181,7 +1206,7 @@ function renderTradeLog() {
       <td><span class="dot" style="background:${c}"></span><span style="font-size:11px" title="${t.strategy}">${shortStrat(t.strategy)}</span></td>
       <td class="${pos?'tg':'tr'}">${fmt$(t.pl)}</td>
       <td class="${pos?'tg':'tr'}">${t.plPct.toFixed(1)}%</td>
-      <td class="tn">${t.is0DTE ? '<span style="font-size:9px;color:var(--gold);font-family:\'Space Mono\',monospace;margin-right:3px" title="0DTE: margine = max loss">0DTE</span>' : ''}$${t.margin.toLocaleString()}</td>
+      <td class="tn">${t.is0DTE ? '<span style="font-size:9px;color:var(--gold);font-family:\'Space Mono\',monospace;margin-right:3px" title="0DTE: margin = max loss">0DTE</span>' : ''}$${t.margin.toLocaleString()}</td>
       <td class="tn">${t.vixOpen.toFixed(1)}</td>
       <td class="tn">${t.vixClose.toFixed(1)}</td>
       <td style="font-size:10px;color:var(--muted)">${t.reason}</td>
@@ -1242,18 +1267,18 @@ function buildMOY(trades) {
 // MARGIN CHARTS
 // ─────────────────────────────────────────────────────────────────────────────
 function renderMarginKpis(m) {
-  const dn = ['Lun','Mar','Mer','Gio','Ven'];
+  const dn = ['Mon','Tue','Wed','Thu','Fri'];
   const miMarg = m.dowAvg.indexOf(Math.max(...m.dowAvg));
   const miStrat = m.dowStratAvg.indexOf(Math.max(...m.dowStratAvg));
   document.getElementById('marginKpis').innerHTML = [
-    {c:'b', l:'Margine Medio Giornaliero',    v:'$'+Math.round(m.avg).toLocaleString('it-IT'),              s:`su ${m.days.length} giorni operativi`},
-    {c:'r', l:'Margine Massimo',              v:'$'+Math.round(m.max).toLocaleString('it-IT'),              s:'Picco storico'},
-    {c:'g', l:'Margine Minimo',               v:'$'+Math.round(m.min).toLocaleString('it-IT'),              s:'Giorno con meno esposizione'},
-    {c:'o', l:'Margine Giorno Più Pesante',   v:dn[miMarg]+' · $'+Math.round(m.dowAvg[miMarg]).toLocaleString('it-IT'), s:'Giorno settimana con margine medio più alto'},
-    {c:'p', l:'Giorni Operativi',             v:m.days.length,                                              s:'Giorni con almeno 1 posizione aperta'},
-    {c:'r', l:'Max Strategie Contemporanee',  v:m.maxConcurrent,                                            s:'Picco storico in un singolo giorno'},
-    {c:'b', l:'Media Strategie Contemporanee',v:m.avgConcurrent.toFixed(1),                                 s:'Media giornaliera su tutti i giorni operativi'},
-    {c:'o', l:'Giorno Più Affollato',         v:dn[miStrat]+' · '+m.dowStratAvg[miStrat].toFixed(1),        s:'Giorno con più strategie attive in media'},
+    {c:'b', l:'Average Daily Margin',    v:'$'+Math.round(m.avg).toLocaleString('it-IT'),              s:`over ${m.days.length} trading days`},
+    {c:'r', l:'Maximum Margin',              v:'$'+Math.round(m.max).toLocaleString('it-IT'),              s:'All-time peak'},
+    {c:'g', l:'Minimum Margin',               v:'$'+Math.round(m.min).toLocaleString('it-IT'),              s:'Day with least exposure'},
+    {c:'o', l:'Heaviest Margin Day',   v:dn[miMarg]+' · $'+Math.round(m.dowAvg[miMarg]).toLocaleString('it-IT'), s:'Weekday with highest average margin'},
+    {c:'p', l:'Trading Days',             v:m.days.length,                                              s:'Days with at least 1 open position'},
+    {c:'r', l:'Max Concurrent Strategies',  v:m.maxConcurrent,                                            s:'All-time peak in un singolo giorno'},
+    {c:'b', l:'Avg Concurrent Strategies',v:m.avgConcurrent.toFixed(1),                                 s:'Daily average across all trading days'},
+    {c:'o', l:'Busiest Day',         v:dn[miStrat]+' · '+m.dowStratAvg[miStrat].toFixed(1),        s:'Weekday with most active strategies on average'},
   ].map(k=>`<div class="kpi ${k.c}"><div class="kpi-l">${k.l}</div><div class="kpi-v">${k.v}</div><div class="kpi-s">${k.s}</div></div>`).join('');
 }
 
@@ -1306,7 +1331,7 @@ function drawMarginDowChart(id, m) {
   const r=setupCanvas(id,200); if(!r) return;
   const {ctx,W,H}=r;
   const pL=56,pR=14,pT=24,pB=32,cw=W-pL-pR,ch=H-pT-pB;
-  const labels=['Lun','Mar','Mer','Gio','Ven'];
+  const labels=['Mon','Tue','Wed','Thu','Fri'];
   const n=5; const groupW=cw/n; const muted='#546a87',border='#1c2a40';
   const blue='#4f9eff', gold='#f0b429';
   const maxVal=Math.max(...m.dowMax,1);
@@ -1351,7 +1376,7 @@ function drawMarginDowChart(id, m) {
   // Legend
   ctx.fillStyle=hexToRgba(blue,0.85);ctx.fillRect(pL,6,12,8);
   ctx.fillStyle='#dde6f0';ctx.font='9px DM Sans,sans-serif';ctx.textAlign='left';
-  ctx.fillText('Media',pL+16,14);
+  ctx.fillText('Avg',pL+16,14);
   ctx.fillStyle=hexToRgba(gold,0.5);ctx.fillRect(pL+60,6,12,8);
   ctx.fillStyle='#dde6f0';ctx.fillText('Massimo',pL+76,14);
 }
@@ -1360,7 +1385,7 @@ function drawConcurrentDowChart(id, m) {
   const r = setupCanvas(id, 160); if (!r) return;
   const {ctx,W,H} = r;
   const pL=48,pR=14,pT=20,pB=32,cw=W-pL-pR,ch=H-pT-pB;
-  const labels = ['Lun','Mar','Mer','Gio','Ven'];
+  const labels = ['Mon','Tue','Wed','Thu','Fri'];
   const vals = m.dowStratAvg;
   const maxV = Math.max(...vals, 1);
   const muted='#546a87', border='#1c2a40', accent='#00d4aa';
@@ -1390,7 +1415,7 @@ function drawConcurrentDowChart(id, m) {
   });
 
   ctx.fillStyle='#dde6f0'; ctx.font='9px DM Sans,sans-serif'; ctx.textAlign='left';
-  ctx.fillText('Media strategie attive contemporaneamente', pL, 12);
+  ctx.fillText('Avg concurrent active strategies', pL, 12);
 }
 
 function drawConcurrentDistChart(id, m) {
@@ -1424,9 +1449,9 @@ function drawConcurrentDistChart(id, m) {
   });
 
   ctx.fillStyle=muted; ctx.font='9px DM Sans,sans-serif'; ctx.textAlign='center';
-  ctx.fillText('N. strategie attive contemporaneamente', pL+cw/2, H-4);
+  ctx.fillText('N. strategies attive contemporaneamente', pL+cw/2, H-4);
   ctx.fillStyle='#dde6f0'; ctx.textAlign='left';
-  ctx.fillText('Frequenza (giorni)', pL, 12);
+  ctx.fillText('Frequency (days)', pL, 12);
 }
 
 function drawMarginDistChart(id, m) {
@@ -2093,7 +2118,7 @@ function onSizeChange(s, input) {
   if (row && base.stratStats && base.stratStats[s]) {
     const st = base.stratStats[s];
     const cells = row.querySelectorAll('td');
-    // cell order: cb, name, size, trade, pl, win%, avgWin, avgLoss, pf, sharpe, maxDD, rom
+    // cell order: cb, name, size, trades, pl, win%, avgWin, avgLoss, pf, sharpe, maxDD, rom
     if (cells[4])  cells[4].textContent  = fmt$(st.pl * v);
     if (cells[6])  cells[6].textContent  = fmt$s(st.avgWin * v);
     if (cells[7])  cells[7].textContent  = fmt$s(Math.abs(st.avgLoss) * v);
@@ -2103,16 +2128,16 @@ function onSizeChange(s, input) {
   updateLivePanel();
 }
 
-function scaledTrade(t) {
+function scaledTrades(t) {
   const sz = (window._stratSizes && window._stratSizes[t.strategy]) || 1;
   if (sz === 1) return t;
   return { ...t, pl: t.pl * sz, margin: (t.margin || 0) * sz };
 }
 
-function getSelScaledTrades() {
+function getSelScaledTradess() {
   const base = window._G || G;
   const sel = window._selectedStrats || new Set(base.strategies);
-  return base.trades.filter(t => sel.has(t.strategy)).map(scaledTrade);
+  return base.trades.filter(t => sel.has(t.strategy)).map(scaledTrades);
 }
 
 function tokenSim(a, b) {
@@ -2140,7 +2165,7 @@ function loadPortfolioByIds(ids, sizes) {
   });
 
   if (matched.size === 0) {
-    alert('Nessuna strategia trovata. Gli ID nella tabella non corrispondono al portfolio caricato.');
+    alert('No strategies found. Gli ID nella tabella non corrispondono al portfolio caricato.');
     return;
   }
 
@@ -2176,7 +2201,7 @@ function loadPortfolioSelection(names, sizes) {
       matched.set(s, (sizes && sizes[bestIdx] >= 1) ? sizes[bestIdx] : 1);
     }
   });
-  if (!matched.size) { alert('Nessuna strategia trovata con corrispondenza fuzzy.'); return; }
+  if (!matched.size) { alert('No strategies found con corrispondenza fuzzy.'); return; }
   window._selectedStrats = new Set(matched.keys());
   matched.forEach((sz, s) => { window._stratSizes[s] = sz; });
   if (document.getElementById('subPortBanner').style.display === 'flex') exitSubPortfolio();
@@ -2195,16 +2220,16 @@ function updateLivePanel() {
   if (!sel.size) return;
 
   // Compute stats for selected set (with size scaling)
-  const selTrades = getSelScaledTrades();
-  const st = calcStats(selTrades, 'Sel');
+  const selTradess = getSelScaledTradess();
+  const st = calcStats(selTradess, 'Sel');
 
   // Max daily margin for selected strategies only (scaled)
-  const selDailyMargin = buildDailyMarginsForTrades(selTrades);
+  const selDailyMargin = buildDailyMarginsForTradess(selTradess);
   const selMaxMargin = selDailyMargin.max || 0;
   const selCapBase = selMaxMargin + Math.abs(st.maxDD) * 2;
   const avgMonthly = (() => {
     const monthly = {};
-    selTrades.forEach(t => {
+    selTradess.forEach(t => {
       const d = t.dateClose || t.dateOpen; if (!d) return;
       const k = d.getFullYear() + '-' + d.getMonth();
       monthly[k] = (monthly[k] || 0) + t.pl;
@@ -2215,21 +2240,21 @@ function updateLivePanel() {
   const annPct = selCapBase > 0 ? (avgMonthly*12/selCapBase*100) : 0;
 
   const kpis = [
-    { l:'P/L Totale',    v: fmt$(st.pl),                             c: st.pl>=0?'var(--accent)':'var(--red)' },
+    { l:'Total P/Lale',    v: fmt$(st.pl),                             c: st.pl>=0?'var(--accent)':'var(--red)' },
     { l:'Win Rate',      v: st.winRate.toFixed(1)+'%',               c: st.winRate>=50?'var(--accent)':'var(--red)' },
     { l:'Profit Factor', v: isFinite(st.pf)?st.pf.toFixed(2):'∞',   c: st.pf>=1.5?'var(--accent)':'var(--red)' },
     { l:'Sharpe',        v: st.sharpe.toFixed(2),                    c: st.sharpe>=1?'var(--accent)':'var(--gold)' },
     { l:'Max Drawdown',  v: fmt$(st.maxDD),                          c: 'var(--red)' },
     { l:'Capital Base',  v: '$'+Math.round(selCapBase).toLocaleString('it-IT'), c: 'var(--muted)' },
     { l:'Rend. % Anno',  v: annPct.toFixed(1)+'%',                   c: annPct>=100?'var(--accent)':'var(--gold)' },
-    { l:'Trade Totali',  v: selTrades.length,                        c: 'var(--text)' },
+    { l:'Trades Totali',  v: selTradess.length,                        c: 'var(--text)' },
   ];
   document.getElementById('lpKpis').innerHTML = kpis.map(k =>
     `<div class="lp-kpi"><div class="lk-l">${k.l}</div><div class="lk-v" style="color:${k.c}">${k.v}</div></div>`
   ).join('');
 }
 
-function buildDailyMarginsForTrades(trades) {
+function buildDailyMarginsForTradess(trades) {
   const map = {};
   trades.forEach(t => {
     if (!t.dateOpen || !t.margin) return;
@@ -2250,16 +2275,16 @@ function buildDailyMarginsForTrades(trades) {
 function viewSelectedInDetail() {
   const sel = window._selectedStrats;
   if (!sel || !sel.size) return;
-  const selTrades = getSelScaledTrades();
-  if (!selTrades.length) return;
-  G = buildGlobal(selTrades);
+  const selTradess = getSelScaledTradess();
+  if (!selTradess.length) return;
+  G = buildGlobal(selTradess);
   const stratSel = document.getElementById('stratSelect');
   const tf = document.getElementById('tradeFilter');
   stratSel.innerHTML = G.strategies.map(s=>`<option value="${s.replace(/"/g,'&quot;')}">${shortStrat(s)}</option>`).join('');
-  tf.innerHTML = '<option value="">Tutte le strategie</option>' + G.strategies.map(s=>`<option value="${s.replace(/"/g,'&quot;')}">${shortStrat(s)}</option>`).join('');
+  tf.innerHTML = '<option value="">All strategies</option>' + G.strategies.map(s=>`<option value="${s.replace(/"/g,'&quot;')}">${shortStrat(s)}</option>`).join('');
   if (G.strategies.length) stratSel.value = G.strategies[0];
   const banner = document.getElementById('subPortBanner');
-  document.getElementById('subPortLabel').textContent = sel.size + ' strategie';
+  document.getElementById('subPortLabel').textContent = sel.size + ' strategies';
   banner.style.display = 'flex';
   switchTab('portfolio');
   renderPortfolio();
@@ -2270,7 +2295,7 @@ function exitSubPortfolio() {
   const stratSel = document.getElementById('stratSelect');
   const tf = document.getElementById('tradeFilter');
   stratSel.innerHTML = G.strategies.map(s=>`<option value="${s.replace(/"/g,'&quot;')}">${shortStrat(s)}</option>`).join('');
-  tf.innerHTML = '<option value="">Tutte le strategie</option>' + G.strategies.map(s=>`<option value="${s.replace(/"/g,'&quot;')}">${shortStrat(s)}</option>`).join('');
+  tf.innerHTML = '<option value="">All strategies</option>' + G.strategies.map(s=>`<option value="${s.replace(/"/g,'&quot;')}">${shortStrat(s)}</option>`).join('');
   if (G.strategies.length) stratSel.value = G.strategies[0];
   document.getElementById('subPortBanner').style.display = 'none';
   switchTab('portfolio');
@@ -2304,6 +2329,45 @@ document.getElementById('tabs').addEventListener('click',e=>{
 // ─────────────────────────────────────────────────────────────────────────────
 // MAIN ENTRY
 // ─────────────────────────────────────────────────────────────────────────────
+function loadDemo() {
+  const btn = document.getElementById('demoBtn');
+  const errEl = document.getElementById('errMsg');
+  errEl.style.display = 'none';
+  btn.innerHTML = '<span style="font-size:20px">⏳</span><span>Loading demo…</span>';
+  btn.disabled = true;
+
+  const DEMO_URL = 'https://raw.githubusercontent.com/sax-optionomega/Trade-Analyzer/main/Demo.csv';
+
+  fetch(DEMO_URL)
+    .then(r => {
+      if (!r.ok) throw new Error(`HTTP ${r.status} — make sure Demo.csv is uploaded to the repository`);
+      return r.text();
+    })
+    .then(text => {
+      const trades = parseCSV(text);
+      G = buildGlobal(trades);
+      window._G = G;
+
+      const sel = document.getElementById('stratSelect');
+      const tf  = document.getElementById('tradeFilter');
+      sel.innerHTML = G.strategies.map(s=>`<option value="${s.replace(/"/g,'&quot;')}">${shortStrat(s)}</option>`).join('');
+      tf.innerHTML  = '<option value="">All strategies</option>' + G.strategies.map(s=>`<option value="${s.replace(/"/g,'&quot;')}">${shortStrat(s)}</option>`).join('');
+      if (G.strategies.length) sel.value = G.strategies[0];
+
+      document.getElementById('uploadScreen').style.display = 'none';
+      document.getElementById('mainScreen').style.display   = 'block';
+      document.getElementById('fLabel').textContent = '📊 Demo Portfolio';
+
+      renderPortfolio();
+    })
+    .catch(err => {
+      btn.innerHTML = '<span style="font-size:20px">▶</span><span>Load Demo Portfolio</span>';
+      btn.disabled = false;
+      errEl.textContent = '⚠ ' + err.message;
+      errEl.style.display = 'block';
+    });
+}
+
 function processFile(file) {
   if(!file) return;
   document.getElementById('errMsg').style.display='none';
@@ -2318,7 +2382,7 @@ function processFile(file) {
       const sel=document.getElementById('stratSelect');
       const tf=document.getElementById('tradeFilter');
       sel.innerHTML=G.strategies.map(s=>`<option value="${s.replace(/"/g,'&quot;')}">${shortStrat(s)}</option>`).join('');
-      tf.innerHTML='<option value="">Tutte le strategie</option>'+G.strategies.map(s=>`<option value="${s.replace(/"/g,'&quot;')}">${shortStrat(s)}</option>`).join('');
+      tf.innerHTML='<option value="">All strategies</option>'+G.strategies.map(s=>`<option value="${s.replace(/"/g,'&quot;')}">${shortStrat(s)}</option>`).join('');
       if(G.strategies.length) { sel.value=G.strategies[0]; }
 
       document.getElementById('uploadScreen').style.display='none';
@@ -2384,7 +2448,7 @@ function buildAnalysisPayload() {
     const vixWorst = segs.length ? segs.reduce((a,b) => b.avgPL < a.avgPL ? b : a) : null;
     return {
       nome: s,
-      trade: st.trades.length,
+      trades: st.trades.length,
       pl_totale: Math.round(st.pl),
       win_rate_pct: +st.winRate.toFixed(1),
       avg_win: Math.round(st.avgWin),
@@ -2409,7 +2473,7 @@ function buildAnalysisPayload() {
     },
     portfolio: {
       equity_totale: Math.round(D.pl),
-      trade_totali: D.trades.length,
+      trades_totali: D.trades.length,
       win_rate_pct: +D.winRate.toFixed(1),
       profit_factor: isFinite(D.pf) ? +D.pf.toFixed(2) : 999,
       sharpe_ratio: +D.sharpe.toFixed(2),
@@ -2430,18 +2494,18 @@ function buildAnalysisPayload() {
       margine_medio_giornaliero: Math.round(mData.avg||0),
       capital_base: Math.round(capitalBase),
       rendimento_annuo_pct_su_capital: capitalBase ? +((avgMonthly*12)/capitalBase*100).toFixed(1) : null,
-      nota_0dte: `${D.trades.filter(t=>t.is0DTE).length} trade su ${D.trades.length} sono 0DTE: per questi il margine richiesto e' impostato alla perdita massima (max loss), senza leva.`,
-      max_strategie_contemporanee: mData.maxConcurrent || 0,
-      media_strategie_contemporanee: mData.avgConcurrent ? +mData.avgConcurrent.toFixed(1) : 0,
-      media_strategie_per_giorno: mData.dowStratAvg ? ['Lun','Mar','Mer','Gio','Ven'].reduce((o,d,i) => { o[d]=+(mData.dowStratAvg[i]||0).toFixed(1); return o; }, {}) : {},
+      nota_0dte: `${D.trades.filter(t=>t.is0DTE).length} trades su ${D.trades.length} sono 0DTE: per questi il margine richiesto e' impostato alla perdita massima (max loss), senza leva.`,
+      max_strategies_contemporanee: mData.maxConcurrent || 0,
+      media_strategies_contemporanee: mData.avgConcurrent ? +mData.avgConcurrent.toFixed(1) : 0,
+      media_strategies_per_giorno: mData.dowStratAvg ? ['Mon','Tue','Wed','Thu','Fri'].reduce((o,d,i) => { o[d]=+(mData.dowStratAvg[i]||0).toFixed(1); return o; }, {}) : {},
     },
     vix_portfolio: D.vixSegs ? D.vixSegs.map(s => ({
       regime: s.label,
-      trade: s.count,
+      trades: s.count,
       avg_pl: Math.round(s.avgPL),
       win_rate_pct: +s.winRate.toFixed(1),
     })) : [],
-    strategie: stratSummary,
+    strategies: stratSummary,
   };
 
   // ── Correlation matrix (full, for optimizer) ────────────────────────────────
@@ -2459,17 +2523,17 @@ function buildAnalysisPayload() {
   });
 
   const depthInstr = {
-    concise:  'Rispondi in modo conciso, massimo 400 parole. Solo i punti chiave.',
-    detailed: 'Analisi dettagliata e strutturata, circa 700-1000 parole.',
-    expert:   'Analisi approfondita da trader professionista, includi considerazioni avanzate su volatilità, risk-adjusted returns, correlazioni e suggerimenti operativi specifici. Circa 1200-1600 parole.',
+    concise:  'Reply concisely, maximum 400 words. Key points only.',
+    detailed: 'Detailed and structured analysis, approximately 700–1000 words.',
+    expert:   'In-depth analysis from a professional trader perspective, include advanced considerations on volatility, risk-adjusted returns, correlations and specific operational suggestions. approximately 1200–1600 words.',
   }[depth];
 
   const scopeInstr = {
-    full:      'Esegui una analisi completa del portfolio: performance generale, qualità delle singole strategie, esposizione al VIX, gestione del rischio e margini.',
-    strategies:'Concentrati sul confronto tra le singole strategie: quali funzionano meglio, quali sono sottoperformanti, quali hanno il miglior risk/reward.',
-    vix:       'Analizza come il portfolio e le singole strategie si comportano nei diversi regimi di volatilità VIX. Identifica dipendenze e vulnerabilità.',
-    risk:      'Analisi focalizzata sul risk management: drawdown, margini, capital base, correlazione tra strategie, worst case scenarios.',
-    improve:   'Suggerisci miglioramenti concreti e operativi: quali strategie potenziare, quali ridurre o eliminare, come ottimizzare l\u0027allocazione del capitale e gestire i regimi VIX.',
+    full:      'Perform a comprehensive analysis del portfolio: performance generale, qualità delle singole strategies, esposizione al VIX, gestione del rischio e margini.',
+    strategies:'Focus on comparing tra le singole strategies: quali funzionano meglio, quali sono sottoperformanti, quali hanno il miglior risk/reward.',
+    vix:       'Analyze how the portfolio e le singole strategies si comportano nei diversi regimi di volatilità VIX. Identifica dipendenze e vulnerabilità.',
+    risk:      'Risk management focused analysis: drawdown, margini, capital base, correlazione tra strategies, worst case scenarios.',
+    improve:   'Suggest concrete improvements e operativi: quali strategies potenziare, quali ridurre o eliminare, come ottimizzare l\u0027allocazione del capitale e gestire i regimi VIX.',
     optimizer: '',
     custom:    (document.getElementById('customQuestion')?.value?.trim() || ''),
   }[scope];
@@ -2507,7 +2571,7 @@ function formatAIResponse(text) {
       html += '<tr>' + cells.map(c=>'<td>'+inlineFormat(c)+'</td>').join('') + '</tr>';
     }
     html += '</tbody></table>';
-    // Auto-detect if this is a portfolio table (has "Strategia" AND "ID" header)
+    // Auto-detect if this is a portfolio table (has "Strategy" AND "ID" header)
     if (headers.some(h => /strateg/i.test(h))) {
       const idColIdx   = headers.findIndex(h => /^id$/i.test(h.trim()));
       const sizeColIdx = headers.findIndex(h => /^size$/i.test(h.trim()));
@@ -2533,7 +2597,7 @@ function formatAIResponse(text) {
       if (stratIds.length > 0) {
         const idsJson  = JSON.stringify(stratIds);
         const sizesJson = JSON.stringify(stratSizes);
-        html += `<div style="margin-top:6px"><span class="ai-portfolio-load" onclick='loadPortfolioByIds(${idsJson},${sizesJson})'>&#9654; Carica questo portfolio nel selettore</span></div>`;
+        html += `<div style="margin-top:6px"><span class="ai-portfolio-load" onclick='loadPortfolioByIds(${idsJson},${sizesJson})'>&#9654; Load this portfolio into the selector</span></div>`;
       }
     }
     out.push(html);
@@ -2592,10 +2656,10 @@ function saveApiKey() {
   if (val) {
     localStorage.setItem('anthropic_api_key', val);
     const btn = document.getElementById('apiKeySaveBtn');
-    btn.textContent = 'Salvata \u2713';
+    btn.textContent = 'Saveta \u2713';
     btn.style.borderColor = 'var(--accent)';
     btn.style.color = 'var(--accent)';
-    setTimeout(() => { btn.textContent = 'Salva'; btn.style.borderColor = ''; btn.style.color = ''; }, 2000);
+    setTimeout(() => { btn.textContent = 'Save'; btn.style.borderColor = ''; btn.style.color = ''; }, 2000);
   }
 }
 
@@ -2650,7 +2714,7 @@ async function runAIAnalysis() {
   const apiKey2 = document.getElementById('apiKeyInput')?.value?.trim();
   const isClaudeAI = window.location.hostname.includes('claude.ai') || window.location.hostname === 'localhost';
   if (!apiKey2 && !isClaudeAI) {
-    errEl.textContent = '\u26a0 Inserisci la tua API key Anthropic nel campo qui sopra per usare questa funzione fuori da claude.ai';
+    errEl.textContent = '\u26a0 Enter your API key Anthropic nel campo qui sopra per usare questa funzione fuori da claude.ai';
     errEl.style.display = 'block';
     return;
   }
@@ -2679,30 +2743,30 @@ async function runAIAnalysis() {
     // Show progress steps
     if (isOptimizer) {
       showProgress([
-        'Raccolta dati strategie e margini',
-        'Analisi matrice di correlazione',
-        'Calcolo metriche risk/reward per strategia',
-        'Invio dati all\u0027API Claude',
-        'Generazione portfolio ottimali',
-        'Elaborazione risposta',
+        'Collecting data strategies e margini',
+        'Analyzing correlation matrix',
+        'Computing per-strategy risk/reward metrics',
+        'Sending data all\u0027API Claude',
+        'Generating optimal portfolios',
+        'Processing response',
       ]);
       setStep(0);
     } else {
-      showProgress(['Preparazione payload', 'Invio all\u0027API Claude', 'Elaborazione risposta']);
+      showProgress(['Preparing payload', 'Invio all\u0027API Claude', 'Processing response']);
       setStep(0);
     }
 
     const systemPrompt = isOptimizer
-      ? `Sei un portfolio optimizer quantitativo specializzato in strategie di opzioni sistematiche su SPX/ES.
-Il tuo compito è analizzare un insieme di strategie di trading e proporre configurazioni di portfolio ottimali.
-CONTESTO IMPORTANTE: Si tratta prevalentemente di strategie 0 DTE (zero days to expiration) su SPX. Le opzioni SPX con scadenza giornaliera (0 DTE) sono disponibili su tutti i giorni di borsa solo a partire dal 16 maggio 2022. I dati precedenti a tale data potrebbero includere solo le scadenze settimanali del venerdì — tienilo presente nell'analisi della storia e nella valutazione statistica delle performance.
+      ? `Sei un portfolio optimizer quantitativo specializzato in strategies di opzioni sistematiche su SPX/ES.
+Il tuo compito è analizzare un insieme di strategies di trading e proporre configurazioni di portfolio ottimali.
+CONTESTO IMPORTANTE: Si tratta prevalentemente di strategies 0 DTE (zero days to expiration) su SPX. Le opzioni SPX con scadenza giornaliera (0 DTE) sono disponibili su tutti i giorni di borsa solo a partire dal 16 maggio 2022. I dati precedenti a tale data potrebbero includere solo le scadenze settimanali del venerdì — tienilo presente nell'analisi della storia e nella valutazione statistica delle performance.
 Rispondi sempre in italiano. Usa ## per le sezioni principali, ### per i portfolio proposti.
-Usa **grassetto** per i valori numerici e i nomi delle strategie.
+Usa **grassetto** per i valori numerici e i nomi delle strategies.
 Usa tabelle markdown (| col | col |) per mostrare la composizione dei portfolio proposti.
 Sii preciso, quantitativo e operativo. Ogni portfolio proposto deve avere una motivazione chiara basata sui dati.`
-      : `Sei un analista quantitativo specializzato in strategie di opzioni su indici azionari (SPX, ES, NQ).
+      : `You are a quantitative analyst specializzato in strategies di opzioni su indici azionari (SPX, ES, NQ).
 Analizzi portafogli di trading sistematico con approccio data-driven e professionale.
-CONTESTO IMPORTANTE: Si tratta prevalentemente di strategie 0 DTE (zero days to expiration) su SPX. Le opzioni SPX con scadenza giornaliera (0 DTE) sono disponibili su tutti i giorni di borsa solo a partire dal 16 maggio 2022. I dati precedenti a tale data potrebbero includere solo le scadenze settimanali del venerdì — tienilo presente nell'interpretazione delle statistiche, nella frequenza dei trade e nella valutazione delle performance storiche. Non confrontare meccanicamente periodi pre e post maggio 2022 senza considerare questa discontinuità strutturale.
+CONTESTO IMPORTANTE: Si tratta prevalentemente di strategies 0 DTE (zero days to expiration) su SPX. Le opzioni SPX con scadenza giornaliera (0 DTE) sono disponibili su tutti i giorni di borsa solo a partire dal 16 maggio 2022. I dati precedenti a tale data potrebbero includere solo le scadenze settimanali del venerdì — tienilo presente nell'interpretazione delle statistiche, nella frequenza dei trades e nella valutazione delle performance storiche. Non confrontare meccanicamente periodi pre e post maggio 2022 senza considerare questa discontinuità strutturale.
 Rispondi sempre in italiano. Usa ## per le sezioni principali, ### per le sottosezioni.
 Usa **grassetto** per i valori numerici importanti e *corsivo* per le annotazioni.
 Usa il simbolo backtick per evidenziare metriche specifiche come \`Sharpe: 6.2\` o \`Win Rate: 57%\`.`;
@@ -2712,7 +2776,7 @@ Usa il simbolo backtick per evidenziare metriche specifiche come \`Sharpe: 6.2\`
     if (isOptimizer) {
       setStep(1);
       // Build rich optimizer payload
-      const stratList = stats.strategie.map((s, i) => ({
+      const stratList = stats.strategies.map((s, i) => ({
         id: i + 1,
         nome: s.nome,
         sharpe: s.sharpe,
@@ -2730,9 +2794,9 @@ Usa il simbolo backtick per evidenziare metriche specifiche come \`Sharpe: 6.2\`
 
       setStep(2);
       // Compact correlation table
-      const corrTable = corrMatrix ? stats.strategie.map((s, i) => {
+      const corrTable = corrMatrix ? stats.strategies.map((s, i) => {
         const row = {};
-        stats.strategie.forEach((s2, j) => {
+        stats.strategies.forEach((s2, j) => {
           if (i !== j && corrMatrix[i][j] !== null) {
             row[j+1] = corrMatrix[i][j];
           }
@@ -2740,16 +2804,16 @@ Usa il simbolo backtick per evidenziare metriche specifiche come \`Sharpe: 6.2\`
         return { id: i+1, nome_breve: s.nome.slice(0,30), correlazioni_con: row };
       }) : [];
 
-      userPrompt = `Hai a disposizione ${stratList.length} strategie di trading in opzioni 0 DTE su SPX.
+      userPrompt = `Hai a disposizione ${stratList.length} strategies di trading in opzioni 0 DTE su SPX.
 NOTA STORICA: Le scadenze giornaliere 0 DTE su SPX sono disponibili solo dal 16/05/2022. I dati precedenti a quella data hanno frequenza ridotta (solo venerdì). Considera questa discontinuità nell'analisi statistica.
-Il tuo obiettivo è proporre 3 portfolio ottimali selezionando un sottoinsieme di queste strategie e assegnando una SIZE (moltiplicatore intero >= 1) a ciascuna.
+Your objective è propose 3 optimal portfolios selezionando un sottoinsieme di queste strategies e assegnando una SIZE (moltiplicatore intero >= 1) a ciascuna.
 
 VINCOLI IMPORTANTI:
 - La SIZE minima per ogni strategia inclusa è 1 (non puoi ridurla sotto 1)
-- Puoi aumentare la size a 2, 3, 4... per le strategie con miglior risk/reward
-- Puoi escludere strategie che peggiorano il profilo rischio/rendimento
+- Puoi aumentare la size a 2, 3, 4... per le strategies con miglior risk/reward
+- Puoi escludere strategies che peggiorano il profilo rischio/rendimento
 - Il margine totale del portfolio = somma(margine_medio × size) per ogni strategia inclusa
-- Obiettivo: massimizzare Sharpe ratio e Return/Margin minimizzando correlazioni positive tra le strategie incluse
+- Obiettivo: massimizzare Sharpe ratio e Return/Margin minimizing positive correlations tra le strategies incluse
 
 DATI STRATEGIE:
 ${JSON.stringify(stratList, null, 2)}
@@ -2763,23 +2827,23 @@ PORTFOLIO ATTUALE (riferimento):
 - Max Drawdown: $${Math.abs(stats.portfolio.max_drawdown).toLocaleString()}
 - Return annuo su capital: ${stats.margini.rendimento_annuo_pct_su_capital}%
 
-ISTRUZIONI:
-Per ciascuno dei 3 portfolio proposti fornisci:
-1. Una tabella con ESATTAMENTE queste colonne: | ID | Strategia | Size | Motivazione |
-   - ID: il numero intero esatto dal campo "id" dei dati strategie (es. 1, 2, 3...)
-   - Strategia: il nome ESATTO dal campo "nome" senza modifiche o abbreviazioni
+INSTRUCTIONS:
+For each of the 3 proposed portfolios provide:
+1. A table with EXACTLY these columns: | ID | Strategy | Size | Motivazione |
+   - ID: the exact integer from the field "id" dei dati strategies (es. 1, 2, 3...)
+   - Strategy: the EXACT name from the field "nome" without modifications or abbreviations
    - Size: intero >= 1
    - Motivazione: breve
-2. Metriche stimate: Sharpe atteso, margine totale, profilo VIX, max drawdown stimato
-3. Razionale della selezione
-4. Rischi specifici
+2. Estimated metrics: Expected Sharpe, total margin, VIX profile, estimated max drawdown
+3. Selection rationale
+4. Specific risks
 
-IMPORTANTE: nella colonna ID usa SOLO il numero intero dal campo id. Nella colonna Strategia copia il nome ESATTO dal campo nome senza modifiche.
+IMPORTANT: in the ID column use ONLY the integer number dal campo id. Nella colonna Strategy copia the EXACT name from the field nome senza modifiche.
 
-Proponi portfolio con obiettivi diversi:
-- **Portfolio A**: Massimo Sharpe ratio (qualità risk-adjusted)
-- **Portfolio B**: Massimo rendimento assoluto (più aggressivo, size maggiori)
-- **Portfolio C**: Massima robustezza (bassa correlazione interna, resiliente a tutti i regimi VIX)
+Propose portfolios with different objectives:
+- **Portfolio A**: Maximum Sharpe ratio (risk-adjusted quality)
+- **Portfolio B**: Maximum absolute return (more aggressive, larger sizes)
+- **Portfolio C**: Maximum robustness (low internal correlation, resilient across all VIX regimes)
 
 ${depthInstr}`;
 
@@ -2793,7 +2857,7 @@ ${JSON.stringify(stats, null, 2)}
 
 ${depthInstr}
 
-Struttura la risposta con sezioni chiare. Sii diretto e pratico, come un professionista che parla con un altro trader esperto.`;
+Struttura la risposta con sezioni chiare. Sii diretto e pratico, come un professionista che parla con un altro tradesr esperto.`;
     }
 
     if (isOptimizer) { setStep(3); } else { setStep(1); }
@@ -2826,20 +2890,20 @@ Struttura la risposta con sezioni chiare. Sii diretto e pratico, come un profess
     }
 
     if (isOptimizer) { setStep(5); } else { setStep(2); }
-    loadTxt.textContent = 'Elaborazione risposta…';
+    loadTxt.textContent = 'Processing response…';
     const data = await response.json();
     const text = data.content?.find(b => b.type === 'text')?.text || '';
 
     if (!text) throw new Error('Risposta vuota dall\u0027API');
 
     const scopeLabels = {
-      full: 'Portfolio Completo', strategies: 'Confronto Strategie',
-      vix: 'Analisi VIX & Regime', risk: 'Risk Management', improve: 'Suggerimenti',
-      optimizer: 'Ottimizzazione Portfolio', custom: 'Domanda Personalizzata'
+      full: 'Full Portfolio', strategies: 'Strategy Comparison',
+      vix: 'VIX & Regime Analysis', risk: 'Risk Management', improve: 'Improvement Tips',
+      optimizer: 'Portfolio Optimizer', custom: 'Domanda Personalizzata'
     };
 
     output.innerHTML = formatAIResponse(text) +
-      `<div class="ai-meta">Analisi: ${scopeLabels[scope]} · Modello: claude-sonnet-4 · ${new Date().toLocaleString('it-IT')}</div>`;
+      `<div class="ai-meta">Analysis: ${scopeLabels[scope]} · Model: claude-sonnet-4 · ${new Date().toLocaleString('it-IT')}</div>`;
     output.style.display = 'block';
 
   } catch(err) {
@@ -2847,9 +2911,9 @@ Struttura la risposta con sezioni chiare. Sii diretto e pratico, come un profess
     if (msg === 'Failed to fetch' || msg.includes('NetworkError') || msg.includes('fetch')) {
       const hasKey = !!document.getElementById('apiKeyInput')?.value?.trim();
       if (!hasKey) {
-        msg = 'Connessione fallita. Inserisci la tua API key Anthropic nel campo qui sopra.';
+        msg = 'Connessione fallita. Enter your API key Anthropic nel campo qui sopra.';
       } else {
-        msg = 'Connessione fallita (CORS/rete). Prova ad aprire il file su un server locale oppure usa la versione su claude.ai.';
+        msg = 'Connessione fallita (CORS/rete). Prova ad aprire il file su un server locale or usa la versione su claude.ai.';
       }
     }
     errEl.textContent = '⚠ ' + msg;
