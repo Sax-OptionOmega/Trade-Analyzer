@@ -406,7 +406,7 @@ input[type=range].zslider::-webkit-slider-thumb {
   <!-- ── TAB: PORTFOLIO ── -->
   <div class="tab-content active" id="tab-portfolio">
     <div class="kpi-grid" id="pKpis"></div>
-    <div class="sec">Equity Curve Portafoglio</div>
+    <div class="sec">Portfolio Equity Curve</div>
     <div class="card"><div class="cw"><canvas id="eqChart" height="220"></canvas></div></div>
     <div class="g2" id="monthlyGrid" style="align-items:start">
       <div id="monthlyCol">
@@ -419,7 +419,7 @@ input[type=range].zslider::-webkit-slider-thumb {
       <div id="annualCol">
         <div class="sec">Annual Performance</div>
         <div class="card"><div class="cw"><canvas id="annChart" height="200"></canvas></div></div>
-        <div class="sec">Ragioni di Close</div>
+        <div class="sec">Close Reasons</div>
         <div class="card"><div class="reason-grid" id="reasonGrid"></div></div>
       </div>
     </div>
@@ -509,7 +509,7 @@ input[type=range].zslider::-webkit-slider-thumb {
         <div class="card"><div class="cw"><canvas id="romChart" height="220"></canvas></div></div>
       </div>
     </div>
-    <div class="sec">Correlation Matrix tra Strategie</div>
+    <div class="sec">Strategy Correlation Matrix</div>
     <div class="card">
       <div class="cw" id="corrHeatmapWrap">
         <canvas id="corrCanvas"></canvas>
@@ -517,11 +517,11 @@ input[type=range].zslider::-webkit-slider-thumb {
     </div>
     <div class="g2" style="margin-top:16px">
       <div>
-        <div class="sec">Coppie Più Correlate (rischio concentrazione)</div>
+        <div class="sec">Most Correlated Pairs (concentration risk)</div>
         <div class="card" id="corrHighCard"></div>
       </div>
       <div>
-        <div class="sec">Coppie Più Decorrelate (diversificazione ottimale)</div>
+        <div class="sec">Most Decorrelated Pairs (optimal diversification)</div>
         <div class="card" id="corrLowCard"></div>
       </div>
     </div>
@@ -529,23 +529,23 @@ input[type=range].zslider::-webkit-slider-thumb {
 
   <!-- ── TAB: VIX ── -->
   <div class="tab-content" id="tab-vix">
-    <div class="sec">Performance per Regime VIX (al momento dell'ingresso)</div>
+    <div class="sec">Performance by VIX Regime (at trade entry)</div>
     <div class="kpi-grid" id="vixKpis"></div>
     <div class="g2">
       <div>
-        <div class="sec">Avg P/L per Regime VIX — Portafoglio</div>
+        <div class="sec">Avg P/L by VIX Regime — Portfolio</div>
         <div class="card"><div class="cw"><canvas id="vixPortChart" height="220"></canvas></div></div>
       </div>
       <div>
-        <div class="sec">Win Rate per Regime VIX — Portafoglio</div>
+        <div class="sec">Win Rate by VIX Regime — Portfolio</div>
         <div class="card"><div class="cw"><canvas id="vixWrChart" height="220"></canvas></div></div>
       </div>
     </div>
-    <div class="sec">Heatmap VIX — Avg P/L per Strategy × Regime</div>
+    <div class="sec">VIX Heatmap — Avg P/L per Strategy × Regime</div>
     <div class="card">
       <div class="cw" id="vixHeatmap"></div>
     </div>
-    <div class="sec">Distribuzione Ingressi per Livello VIX</div>
+    <div class="sec">Trade Entry Distribution by VIX Level</div>
     <div class="card"><div class="cw"><canvas id="vixDistChart" height="180"></canvas></div></div>
   </div>
 
@@ -561,7 +561,7 @@ input[type=range].zslider::-webkit-slider-thumb {
         <div class="card"><div class="cw"><canvas id="dEqChart" height="200"></canvas></div></div>
       </div>
       <div>
-        <div class="sec">Statistiche</div>
+        <div class="sec">Statistics</div>
         <div class="card" id="dStats"></div>
       </div>
     </div>
@@ -571,7 +571,7 @@ input[type=range].zslider::-webkit-slider-thumb {
         <div class="card"><div class="cw"><canvas id="dDistChart" height="180"></canvas></div></div>
       </div>
       <div>
-        <div class="sec">Performance per VIX</div>
+        <div class="sec">Performance by VIX</div>
         <div class="card"><div class="cw"><canvas id="dVixChart" height="180"></canvas></div></div>
       </div>
     </div>
@@ -585,7 +585,7 @@ input[type=range].zslider::-webkit-slider-thumb {
         <div class="card"><div class="cw"><canvas id="dMoyChart" height="180"></canvas></div></div>
       </div>
     </div>
-    <div class="sec">Ragioni di Close</div>
+    <div class="sec">Close Reasons</div>
     <div class="card"><div class="reason-grid" id="dReasons"></div></div>
   </div>
 
@@ -600,7 +600,7 @@ input[type=range].zslider::-webkit-slider-thumb {
     <div class="card" style="max-height:600px;overflow-y:auto">
       <table class="tbl" id="tradesTbl">
         <thead><tr>
-          <th>Data Ingresso</th><th>Data Uscita</th><th>Strategy</th>
+          <th>Entry Date</th><th>Exit Date</th><th>Strategy</th>
           <th class="r">P/L</th><th class="r">P/L%</th>
           <th class="r">Margin</th><th class="r">VIX In</th><th class="r">VIX Out</th>
           <th>Close</th>
@@ -648,7 +648,7 @@ input[type=range].zslider::-webkit-slider-thumb {
     <div class="ai-section" id="customQuestionBox" style="display:none">
       <div class="sec">La tua domanda</div>
       <textarea id="customQuestion"
-        placeholder="Es: In quale regime VIX le mie strategies iron condor tendono a perdere di più? Oppure: Qual è la strategia con il miglior rapporto rischio/rendimento considerando anche i margini richiesti?"
+        placeholder="E.g.: In which VIX regime do my iron condor strategies tend to lose the most? Or: Which strategy has the best risk/reward ratio considering the required margins?"
         style="width:100%;min-height:90px;background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;font-family:'DM Sans',sans-serif;font-size:12px;color:var(--text);resize:vertical;outline:none;line-height:1.5;transition:border-color .2s"
         onfocus="this.style.borderColor='var(--accent)'"
         onblur="this.style.borderColor='var(--border)'"
@@ -1148,10 +1148,10 @@ function renderDetail() {
 
   // KPIs
   document.getElementById('dKpis').innerHTML = [
-    {c:'g', l:'Total P/Lale',    v:fmt$(st.pl),                 s:`${ts.length} trades`},
+    {c:'g', l:'Total P/L',    v:fmt$(st.pl),                 s:`${ts.length} trades`},
     {c:'b', l:'Win Rate',      v:st.winRate.toFixed(1)+'%',   s:`${ts.filter(t=>t.pl>0).length}W / ${ts.filter(t=>t.pl<0).length}L`},
     {c:'o', l:'Profit Factor', v:isFinite(st.pf)?st.pf.toFixed(2):'∞', s:'Gross profit / Gross loss'},
-    {c:'r', l:'Max Drawdown',  v:fmt$(st.maxDD),              s:'Drawdown massimo'},
+    {c:'r', l:'Max Drawdown',  v:fmt$(st.maxDD),              s:'Maximum drawdown'},
     {c:'p', l:'Return/Margin', v:st.rom.toFixed(1)+'%',       s:`Avg margin $${Math.round(st.avgMargin)}`},
   ].map(k=>`<div class="kpi ${k.c}"><div class="kpi-l">${k.l}</div><div class="kpi-v">${k.v}</div><div class="kpi-s">${k.s}</div></div>`).join('');
 
@@ -1160,13 +1160,13 @@ function renderDetail() {
   const worstT = ts.reduce((a,b)=>b.pl<a.pl?b:a,ts[0]);
   const avgVix = ts.filter(t=>t.vixOpen).reduce((a,t,_,arr)=>a+t.vixOpen/arr.length,0);
   document.getElementById('dStats').innerHTML = [
-    ['Trades totali', ts.length, 'n'],
+    ['Total Trades', ts.length, 'n'],
     ['Avg Win', fmt$s(st.avgWin), 'g'],
     ['Avg Loss', fmt$s(Math.abs(st.avgLoss)), 'r'],
     ['Sharpe Ratio', st.sharpe.toFixed(2), 'b'],
-    ['Best Trades', fmt$(bestT.pl)+' · '+fmtD(bestT.dateClose), 'g'],
-    ['Worst Trades', fmt$(worstT.pl)+' · '+fmtD(worstT.dateClose), 'r'],
-    ['VIX Medio Ingresso', avgVix.toFixed(1), 'n'],
+    ['Best Trade', fmt$(bestT.pl)+' · '+fmtD(bestT.dateClose), 'g'],
+    ['Worst Trade', fmt$(worstT.pl)+' · '+fmtD(worstT.dateClose), 'r'],
+    ['Avg Entry VIX', avgVix.toFixed(1), 'n'],
     ['Period', `${fmtD(ts[0]?.dateOpen)} — ${fmtD(ts[ts.length-1]?.dateClose)}`, 'n'],
   ].map(([l,v,c])=>`<div class="srow"><span class="srow-l">${l}</span><span class="srow-v sv-${c}">${v}</span></div>`).join('');
 
@@ -1862,7 +1862,7 @@ function drawVIXDistChart(id) {
     }
   });
   ctx.fillStyle=muted;ctx.font='10px DM Sans,sans-serif';ctx.textAlign='center';
-  ctx.fillText('VIX al momento dell\'ingresso',pL+cw/2,14);
+  ctx.fillText('VIX at trade entry',pL+cw/2,14);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2247,7 +2247,7 @@ function updateLivePanel() {
   const annPct = selCapBase > 0 ? (avgMonthly*12/selCapBase*100) : 0;
 
   const kpis = [
-    { l:'Total P/Lale',    v: fmt$(st.pl),                             c: st.pl>=0?'var(--accent)':'var(--red)' },
+    { l:'Total P/L',    v: fmt$(st.pl),                             c: st.pl>=0?'var(--accent)':'var(--red)' },
     { l:'Win Rate',      v: st.winRate.toFixed(1)+'%',               c: st.winRate>=50?'var(--accent)':'var(--red)' },
     { l:'Profit Factor', v: isFinite(st.pf)?st.pf.toFixed(2):'∞',   c: st.pf>=1.5?'var(--accent)':'var(--red)' },
     { l:'Sharpe',        v: st.sharpe.toFixed(2),                    c: st.sharpe>=1?'var(--accent)':'var(--gold)' },
