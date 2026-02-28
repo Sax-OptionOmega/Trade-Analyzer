@@ -435,7 +435,7 @@ input[type=range].zslider::-webkit-slider-thumb {
       <div id="monthlyCol">
         <div class="sec">Monthly Performance</div>
         <div class="card" id="monthlyCard" style="overflow-y:auto">
-          <table class="tbl"><thead><tr><th>Month</th><th class="r">P/L ($)</th><th class="r">Trades</th><th class="r">Win%</th></tr></thead>
+          <table class="tbl"><thead><tr><th>Month</th><th class="r">P/L ($)</th><th class="r">% / Margin</th><th class="r">Trades</th><th class="r">Win%</th></tr></thead>
           <tbody id="mTbl"></tbody></table>
         </div>
       </div>
@@ -1014,12 +1014,24 @@ function renderPortfolio() {
   const mMax = Math.max(...D.monthlyArr.map(m=>Math.abs(m.pl)));
   document.getElementById('mTbl').innerHTML = D.monthlyArr.map(m => {
     const pos=m.pl>=0; const wr=m.total?Math.round(m.wins/m.total*100):0;
-    return `<tr>
-      <td class="tm">${MN[m.month]} ${m.year}</td>
-      <td class="${pos?'tg':'tr'}">${fmt$(m.pl)}</td>
-      <td class="tn">${m.total}</td>
-      <td class="${wr>=50?'tg':'tr'}">${wr}%</td>
-    </tr>`;
+    // % on avg monthly margin (calculated after margin data available)
+    const mData = window._marginData;
+    let pctStr = '—';
+    if (mData && mData.days && mData.days.length) {
+      const mDays = mData.days.filter(d => d.date.getFullYear()===m.year && d.date.getMonth()===m.month);
+      const avgMon = mDays.length ? mDays.reduce((a,d)=>a+d.margin,0)/mDays.length : 0;
+      if (avgMon > 0) {
+        const pct = m.pl / avgMon * 100;
+        pctStr = `<span style="color:${pct>=0?'var(--accent)':'var(--red)'}">${pct>=0?'+':''}${pct.toFixed(1)}%</span>`;
+      }
+    }
+    return \`<tr>
+      <td class="tm">\${MN[m.month]} \${m.year}</td>
+      <td class="\${pos?'tg':'tr'}">\${fmt$(m.pl)}</td>
+      <td class="tn">\${pctStr}</td>
+      <td class="tn">\${m.total}</td>
+      <td class="\${wr>=50?'tg':'tr'}">\${wr}%</td>
+    </tr>\`;
   }).join('');
 
   // Reasons
@@ -1056,6 +1068,27 @@ function renderPortfolio() {
     drawConcurrentDistChart('concurrentDistChart', mData);
     drawConcurrentDowChart('concurrentDowChart', mData);
     drawMarginDistChart('marginDistChart', mData);
+    // Re-render monthly table now that _marginData is available (for % column)
+    const mTbl = document.getElementById('mTbl');
+    if (mTbl) {
+      mTbl.innerHTML = D.monthlyArr.map(m => {
+        const pos=m.pl>=0; const wr=m.total?Math.round(m.wins/m.total*100):0;
+        const mDays = mData.days.filter(d => d.date.getFullYear()===m.year && d.date.getMonth()===m.month);
+        const avgMon = mDays.length ? mDays.reduce((a,d)=>a+d.margin,0)/mDays.length : 0;
+        let pctStr = '—';
+        if (avgMon > 0) {
+          const pct = m.pl / avgMon * 100;
+          pctStr = `<span style="color:${pct>=0?'var(--accent)':'var(--red)'}">${pct>=0?'+':''}${pct.toFixed(1)}%</span>`;
+        }
+        return `<tr>
+          <td class="tm">${MN[m.month]} ${m.year}</td>
+          <td class="${pos?'tg':'tr'}">${fmt$(m.pl)}</td>
+          <td class="tn">${pctStr}</td>
+          <td class="tn">${m.total}</td>
+          <td class="${wr>=50?'tg':'tr'}">${wr}%</td>
+        </tr>`;
+      }).join('');
+    }
     // Match monthly table height to right column
     requestAnimationFrame(() => requestAnimationFrame(() => matchMonthlyHeight()));
   }));
