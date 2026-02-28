@@ -2,7 +2,7 @@
 
 > **Free, open-source portfolio analytics tool for SPX options traders — powered by AI**
 
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-Try%20Now-00d4aa?style=for-the-badge)](https://yourusername.github.io/trade-analyzer)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Try%20Now-00d4aa?style=for-the-badge)](https://sax-optionomega.github.io/Trade-Analyzer)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)](LICENSE)
 [![No Backend](https://img.shields.io/badge/No%20Backend-100%25%20Client--Side-orange?style=for-the-badge)](#)
 
@@ -54,7 +54,7 @@ Built by a retail trader, for retail traders.
 ## How to Use
 
 ### Option 1 — Use Online (recommended)
-👉 **[Open Live Demo](https://yourusername.github.io/trade-analyzer)**
+👉 **[Open Live Demo](https://sax-optionomega.github.io/Trade-Analyzer)**
 
 1. Export your trades from Option Omega as CSV
 2. Drag & drop the file into the app
