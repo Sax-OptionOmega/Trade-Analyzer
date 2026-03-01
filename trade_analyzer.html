@@ -2947,13 +2947,13 @@ async function runAIAnalysis() {
         'Collecting strategy and margin data',
         'Analyzing correlation matrix',
         'Computing per-strategy risk/reward metrics',
-        'Sending data to Claude API',
+        `Sending data to ${PROVIDER_CONFIG[_currentProvider].name} API`,
         'Generating optimal portfolios',
         'Processing response',
       ]);
       setStep(0);
     } else {
-      showProgress(['Preparing payload', 'Sending to Claude API', 'Processing response']);
+      showProgress(['Preparing payload', `Sending to ${PROVIDER_CONFIG[_currentProvider].name} API`, 'Processing response']);
       setStep(0);
     }
 
