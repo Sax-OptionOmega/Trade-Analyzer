@@ -44,11 +44,14 @@ Built by a retail trader, for retail traders.
 - Day-of-week margin and strategy count averages
 - **0DTE handling**: margin for same-day trades is automatically set to Max Loss (no leverage)
 
-### 🤖 AI-Powered Insights (Claude API)
+### 🤖 AI-Powered Insights (Multi-Provider)
+- **4 AI providers supported**: Claude (Anthropic), GPT-4o (OpenAI), Gemini (Google), Groq
+- Automatic **model fallback**: if a model is unavailable, the app tries up to 3 alternatives per provider
 - Full portfolio analysis with customizable depth (concise / detailed / expert)
 - Focused analysis modes: strategy comparison, VIX exposure, risk management, improvement suggestions
 - **Portfolio Optimizer**: generates 3 optimized portfolio proposals (max Sharpe / max return / max robustness) with strategy selection and size recommendations
 - One-click load of AI-suggested portfolios into the selector
+- **Export AI reports** as `.MD` (Markdown) or `.TXT` files with one click
 
 ---
 
@@ -73,12 +76,20 @@ Download `trade_analyzer.html` and open it with the included launcher:
 
 ## AI Analysis Setup
 
-The app connects directly to the [Anthropic Claude API](https://www.anthropic.com) from your browser.
+The app supports **4 AI providers** — choose the one you prefer:
 
-1. Get your API key at [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys)
-2. Make sure your account has credits at [console.anthropic.com/settings/billing](https://console.anthropic.com/settings/billing) — a $5 top-up is more than enough to start
-3. Open the **AI Analysis** tab and paste your key in the API Key field
-4. The key is stored only in your browser's memory — never sent anywhere except directly to Anthropic
+| Provider | Where to get your API key | Notes |
+|---|---|---|
+| **Claude** (Anthropic) | [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys) | Recommended for depth of analysis |
+| **GPT-4o** (OpenAI) | [platform.openai.com/api-keys](https://platform.openai.com/api-keys) | Widely used, solid all-rounder |
+| **Gemini** (Google) | [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey) | Free tier available |
+| **Groq** | [console.groq.com/keys](https://console.groq.com/keys) | Free, ultra-fast responses |
+
+1. Get an API key from any provider above
+2. Open the **AI Analysis** tab, select your provider, and paste the key
+3. The key is stored only in your browser's memory — never sent anywhere except directly to the provider's API
+
+If a model is temporarily unavailable, the app automatically tries fallback models within the same provider.
 
 > ⚠️ **The AI feature does NOT work if you open the HTML file by double-clicking it.** Use the [live demo](https://sax-optionomega.github.io/Trade-Analyzer) or a local server instead (see Troubleshooting below).
 
@@ -94,8 +105,8 @@ This is a **CORS browser security restriction** — browsers block API calls mad
 👉 [https://sax-optionomega.github.io/Trade-Analyzer](https://sax-optionomega.github.io/Trade-Analyzer)
 
 If it still fails on GitHub Pages, check:
-- Your API key starts with `sk-ant-api03-...`
-- Your Anthropic account has credits (check [billing](https://console.anthropic.com/settings/billing))
+- Your API key format matches the selected provider (e.g. `sk-ant-...` for Claude, `sk-...` for OpenAI, `AIza...` for Gemini, `gsk_...` for Groq)
+- Your account has credits available with the selected provider
 
 ### Running locally with AI enabled
 
@@ -112,7 +123,7 @@ If it still fails on GitHub Pages, check:
 - **No backend** — your CSV data never leaves your browser
 - **No installation** — single HTML file, ~140KB
 - **Analytics** — the app uses Google Analytics to count visits (pageviews only, no personal data)
-- When you trigger AI analysis, your portfolio statistics are sent to the Anthropic API using your own API key
+- When you trigger AI analysis, your portfolio statistics are sent to the selected AI provider's API using your own API key
 
 ---
 
