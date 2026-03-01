@@ -151,11 +151,10 @@ Instead of analyzing a fixed portfolio, you'll define a pool of strategies and l
 ---
 
 ## Roadmap
-- [ ] Multi-account / multi-broker CSV support
-- [ ] Export analysis as PDF report
-- [ ] Strategy performance alerts
-- [ ] Position sizing calculator
-- [ ] More automation tools *(in development)*
+- [ ] Dynamic portfolio optimizer with VIX regime switching
+- [ ] Walk-forward validation of portfolio rules
+- [ ] AI-powered strategy selection based on current market conditions
+- [ ] Strategy automation tools *(in development — [join waitlist](https://docs.google.com/forms/d/e/1FAIpQLSf-FkBSWFW1DuAekiaYs5b4AqVt9iBJBdW4V3c4rwdSP3IjFA/viewform?usp=header))*
 
 ---
 
