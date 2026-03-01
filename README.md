@@ -3,6 +3,7 @@
 > **Free, open-source portfolio analytics tool for SPX options traders — powered by AI**
 
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-Try%20Now-00d4aa?style=for-the-badge)](https://sax-optionomega.github.io/Trade-Analyzer)
+[![Join Waitlist](https://img.shields.io/badge/Join%20Waitlist-Portfolio%20Optimizer-ff6b35?style=for-the-badge)](https://docs.google.com/forms/d/e/1FAIpQLSf-FkBSWFW1DuAekiaYs5b4AqVt9iBJBdW4V3c4rwdSP3IjFA/viewform?usp=header)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)](LICENSE)
 [![No Backend](https://img.shields.io/badge/No%20Backend-100%25%20Client--Side-orange?style=for-the-badge)](#)
 
@@ -136,6 +137,16 @@ Exported CSV from **[Option Omega](https://optonomega.com)** with the following 
 
 ### Strategy Detail
 ![Strategy Detail](screenshots/detail.png)
+
+---
+
+## Coming Soon — Dynamic Portfolio Optimizer
+
+The next version of Trade Analyzer Pro will include **dynamic portfolio optimization**: automatically selecting and weighting your Option Omega strategies based on VIX regime, rolling Sharpe, correlation, and market conditions.
+
+Instead of analyzing a fixed portfolio, you'll define a pool of strategies and let the system tell you which ones to run today — and in what proportion.
+
+👉 **[Join the waitlist](https://docs.google.com/forms/d/e/1FAIpQLSf-FkBSWFW1DuAekiaYs5b4AqVt9iBJBdW4V3c4rwdSP3IjFA/viewform?usp=header)** to be notified first and help shape the direction of the tool.
 
 ---
 
