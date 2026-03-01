@@ -291,6 +291,9 @@ input[type=range].zslider::-webkit-slider-thumb {
 }
 .ai-output tr:nth-child(even) td { background: rgba(255,255,255,.02); }
 .ai-output tr:hover td { background: rgba(79,158,255,.05); }
+.ai-export-bar { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); }
+.ai-export-btn { background: var(--s2); color: var(--accent); border: 1px solid var(--border); border-radius: 6px; padding: 5px 14px; font-size: 10px; font-family: 'Space Mono', monospace; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; transition: all .2s; }
+.ai-export-btn:hover { background: var(--accent); color: var(--bg); }
 .ai-scope {
   display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px;
 }
@@ -2746,7 +2749,7 @@ const PROVIDER_CONFIG = {
     storageKey: 'gemini_api_key',
     hint: 'Get your key at <a href="https://aistudio.google.com/app/apikey" target="_blank">aistudio.google.com</a>. Free tier available.',
     validatePrefix: 'AIza',
-    models: ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-pro'],
+    models: ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.5-flash-lite'],
   },
   groq: {
     name: 'Groq',
@@ -2916,6 +2919,31 @@ function setStep(i) {
 function hideProgress() {
   const wrap = document.getElementById('aiProgressSteps');
   if (wrap) wrap.innerHTML = '';
+}
+
+let _lastAIMarkdown = '';
+let _lastAIScope = '';
+
+function exportAIReport(format) {
+  if (!_lastAIMarkdown) return;
+  const provider = PROVIDER_CONFIG[_currentProvider].name;
+  const model = PROVIDER_CONFIG[_currentProvider].models[0];
+  const date = new Date().toISOString().slice(0, 10);
+  const header = `# Trade Analyzer Pro — AI Report\n\n**Analysis:** ${_lastAIScope}  \n**Provider:** ${provider}  \n**Model:** ${model}  \n**Date:** ${date}\n\n---\n\n`;
+  let content, ext, mime;
+  if (format === 'md') {
+    content = header + _lastAIMarkdown;
+    ext = 'md'; mime = 'text/markdown';
+  } else {
+    content = header + _lastAIMarkdown;
+    ext = 'txt'; mime = 'text/plain';
+  }
+  const blob = new Blob([content], { type: mime + ';charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `TradeAnalyzer_AI_${_lastAIScope.replace(/\s+/g, '_')}_${date}.${ext}`;
+  a.click();
+  URL.revokeObjectURL(a.href);
 }
 
 async function runAIAnalysis() {
@@ -3099,8 +3127,11 @@ Struttura la risposta con sezioni chiare. Sii diretto e pratico, as a profession
       optimizer: 'Portfolio Optimizer', custom: 'Custom Question'
     };
 
+    _lastAIMarkdown = text;
+    _lastAIScope = scopeLabels[scope] || scope;
     output.innerHTML = formatAIResponse(text) +
-      `<div class="ai-meta">Analysis: ${scopeLabels[scope]} · Model: ${PROVIDER_CONFIG[_currentProvider].model} · ${new Date().toLocaleString('en-US')}</div>`;
+      `<div class="ai-meta">Analysis: ${scopeLabels[scope]} · Model: ${PROVIDER_CONFIG[_currentProvider].models[0]} · ${new Date().toLocaleString('en-US')}</div>` +
+      `<div class="ai-export-bar"><button class="ai-export-btn" onclick="exportAIReport('md')">&#128190; Export .MD</button><button class="ai-export-btn" onclick="exportAIReport('txt')">&#128196; Export .TXT</button></div>`;
     output.style.display = 'block';
 
   } catch(err) {
@@ -3108,8 +3139,11 @@ Struttura la risposta con sezioni chiare. Sii diretto e pratico, as a profession
     if (msg === 'Failed to fetch' || msg.includes('NetworkError') || msg.includes('Load failed') || msg.includes('fetch')) {
       const hasKey = !!document.getElementById('apiKeyInput')?.value?.trim();
       const cfg = PROVIDER_CONFIG[_currentProvider];
+      const isLocal = window.location.protocol === 'file:' || window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost';
       if (!hasKey) {
         msg = `Connection failed. Enter your ${cfg.name} API key above.`;
+      } else if (isLocal) {
+        msg = `CORS blocked. API calls don't work from local servers. Use the Apri_TradeAnalyzer.bat launcher or deploy to a public URL.`;
       } else {
         msg = `Connection failed. Check that your ${cfg.name} key is valid and has credits available.`;
       }
