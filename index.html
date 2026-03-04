@@ -995,10 +995,23 @@ function buildDailyMargins(trades) {
     dowStratAvg[dow].push(d.stratCount);
   });
 
+  // Daily P&L aggregation (by close date)
+  const dailyPL = {};
+  trades.forEach(t => {
+    const d = t.dateClose || t.dateOpen;
+    if (!d) return;
+    const key = new Date(d).toISOString().slice(0,10);
+    if (!dailyPL[key]) dailyPL[key] = { date: new Date(d), pl: 0 };
+    dailyPL[key].pl += t.pl;
+  });
+  const dailyPLArr = Object.values(dailyPL).sort((a,b) => a.date - b.date);
+  const worstDay = dailyPLArr.length ? dailyPLArr.reduce((w, d) => d.pl < w.pl ? d : w, dailyPLArr[0]) : null;
+
   return {
     days, margins, stratCounts,
     avg, max, min,
     maxConcurrent, avgConcurrent,
+    dailyPLArr, worstDay,
     dowAvg:      dowAvg.map(b => b.length ? b.reduce((a,v)=>a+v,0)/b.length : 0),
     dowMax:      dowMax.map(b => b.length ? Math.max(...b) : 0),
     dowCounts:   dowAvg.map(b => b.length),
@@ -1360,6 +1373,7 @@ function renderMarginKpis(m) {
     {c:'g', l:'Minimum Margin',               v:'$'+Math.round(m.min).toLocaleString('it-IT'),              s:'Day with least exposure'},
     {c:'o', l:'Peak Margin Day',   v:dn[miMarg]+' · $'+Math.round(m.dowAvg[miMarg]).toLocaleString('it-IT'), s:'Weekday with highest average margin'},
     {c:'p', l:'Trading Days',             v:m.days.length,                                              s:'Days with at least 1 open position'},
+    {c:'r', l:'Max Daily Loss',              v:m.worstDay ? '$'+Math.round(m.worstDay.pl).toLocaleString('it-IT') : '—', s:m.worstDay ? m.worstDay.date.toLocaleDateString('it-IT') : 'N/A'},
     {c:'r', l:'Max Concurrent Strategies',  v:m.maxConcurrent,                                            s:'All-time peak in un singolo giorno'},
     {c:'b', l:'Avg Concurrent Strategies',v:m.avgConcurrent.toFixed(1),                                 s:'Daily average across all trading days'},
     {c:'o', l:'Peak Concurrent Day',  v:dn[miStrat]+' · '+m.dowStratAvg[miStrat].toFixed(1),        s:'Avg no. of strategies open simultaneously'},
