@@ -346,6 +346,54 @@ input[type=range].zslider::-webkit-slider-thumb {
 }
 .ai-provider-btn:hover { border-color: var(--accent); color: var(--accent); }
 .ai-provider-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(0,212,170,.08); }
+
+/* OPTIMIZER TAB */
+.opt-controls { display:flex; gap:14px; flex-wrap:wrap; align-items:flex-end; margin-bottom:20px; }
+.opt-field { display:flex; flex-direction:column; gap:4px; }
+.opt-field label { font-family:'Space Mono',monospace; font-size:9px; text-transform:uppercase; letter-spacing:1px; color:var(--muted); }
+.opt-input, .opt-select {
+  background:var(--s2); border:1px solid var(--border); border-radius:6px;
+  padding:8px 12px; font-family:'Space Mono',monospace; font-size:12px;
+  color:var(--text); outline:none; transition:border-color .2s; min-width:80px;
+}
+.opt-input:focus, .opt-select:focus { border-color:var(--accent); }
+.opt-select option { background:var(--s2); }
+.opt-run {
+  background:linear-gradient(135deg, var(--gold), #e09000); border:none; border-radius:10px;
+  padding:10px 28px; font-family:'Space Mono',monospace; font-size:12px; font-weight:700;
+  color:#000; cursor:pointer; transition:all .2s; letter-spacing:1px;
+}
+.opt-run:hover { transform:translateY(-1px); box-shadow:0 4px 20px rgba(240,180,41,.3); }
+.opt-run:disabled { opacity:.4; cursor:not-allowed; transform:none; }
+.opt-status { font-family:'Space Mono',monospace; font-size:11px; color:var(--muted); }
+.opt-results-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px; }
+@media(max-width:900px){ .opt-results-grid { grid-template-columns:1fr; } }
+.opt-pcard {
+  background:var(--s1); border:1px solid var(--border); border-radius:10px;
+  padding:14px 18px; cursor:pointer; transition:border-color .2s;
+}
+.opt-pcard:hover, .opt-pcard.selected { border-color:var(--gold); }
+.opt-pcard-title {
+  font-family:'Space Mono',monospace; font-size:11px; color:var(--gold);
+  text-transform:uppercase; letter-spacing:2px; margin-bottom:8px;
+  display:flex; justify-content:space-between; align-items:center;
+}
+.opt-pcard-kpis { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:8px; }
+.opt-pk { background:var(--s2); border-radius:5px; padding:4px 10px; }
+.opt-pk .pk-l { font-size:8px; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; }
+.opt-pk .pk-v { font-family:'Space Mono',monospace; font-size:13px; font-weight:700; }
+.opt-strats { font-size:10px; color:var(--muted); line-height:1.6; }
+.opt-strats .dot { width:8px; height:8px; }
+.opt-load-btn {
+  display:inline-block; margin-top:6px; padding:4px 12px;
+  background:rgba(240,180,41,.1); border:1px solid var(--gold);
+  border-radius:5px; font-size:10px; font-family:'Space Mono',monospace;
+  color:var(--gold); cursor:pointer; transition:all .15s;
+}
+.opt-load-btn:hover { background:rgba(240,180,41,.2); }
+.opt-window-marker {
+  position:absolute; top:0; bottom:0; pointer-events:none;
+}
 </style>
 </head>
 <body>
@@ -437,6 +485,7 @@ input[type=range].zslider::-webkit-slider-thumb {
     <div class="tab" data-tab="vix">VIX Analysis</div>
     <div class="tab" data-tab="detail">Strategy Detail</div>
     <div class="tab" data-tab="trades">Trade Log</div>
+    <div class="tab" data-tab="optimizer">Optimizer</div>
     <div class="tab" data-tab="ai">AI Analysis</div>
   </div>
 
@@ -644,6 +693,93 @@ input[type=range].zslider::-webkit-slider-thumb {
         </tr></thead>
         <tbody id="tradesBody"></tbody>
       </table>
+    </div>
+  </div>
+
+  <!-- ── TAB: OPTIMIZER ── -->
+  <div class="tab-content" id="tab-optimizer">
+    <div class="sec">Rolling Window Portfolio Optimizer</div>
+    <div class="card">
+      <div class="card-body">
+        <div class="opt-controls">
+          <div class="opt-field">
+            <label>Optimization Window</label>
+            <select class="opt-select" id="optWindow">
+              <option value="3">Last 3 months</option>
+              <option value="6" selected>Last 6 months</option>
+              <option value="9">Last 9 months</option>
+              <option value="12">Last 12 months</option>
+              <option value="18">Last 18 months</option>
+              <option value="24">Last 24 months</option>
+              <option value="36">Last 36 months</option>
+            </select>
+          </div>
+          <div class="opt-field">
+            <label>Max Strategies</label>
+            <input type="number" class="opt-input" id="optMaxStrats" min="2" max="15" value="6" style="width:70px">
+          </div>
+          <div class="opt-field">
+            <label>Max Size per Strategy</label>
+            <select class="opt-select" id="optMaxSize">
+              <option value="1">1 (no scaling)</option>
+              <option value="2">Up to 2x</option>
+              <option value="3" selected>Up to 3x</option>
+            </select>
+          </div>
+          <div class="opt-field">
+            <label>Top Results</label>
+            <select class="opt-select" id="optTopN">
+              <option value="3">Top 3</option>
+              <option value="5" selected>Top 5</option>
+              <option value="10">Top 10</option>
+            </select>
+          </div>
+          <div class="opt-field">
+            <label>&nbsp;</label>
+            <button class="opt-run" id="optRunBtn" onclick="runOptimizer()">Run Optimizer</button>
+          </div>
+          <div class="opt-field">
+            <label>&nbsp;</label>
+            <span class="opt-status" id="optStatus"></span>
+          </div>
+        </div>
+        <div style="font-size:11px;color:var(--muted);line-height:1.6">
+          Evaluates all combinations of strategies (with size multipliers) on the selected window,
+          then shows the <strong style="color:var(--gold)">full historical equity curve</strong> for each top portfolio &mdash;
+          out-of-sample validation at a glance.
+        </div>
+      </div>
+    </div>
+
+    <div id="optResultsWrap" style="display:none">
+      <div class="sec">Best Portfolios <span id="optCriteriaLabel" style="color:var(--gold)"></span></div>
+      <div class="opt-results-grid" id="optCardsGrid"></div>
+
+      <div class="sec">Equity Curves &mdash; Full History</div>
+      <div class="card"><div class="cw" style="position:relative"><canvas id="optEqChart" height="280"></canvas></div></div>
+
+      <div class="g2" style="margin-top:16px">
+        <div>
+          <div class="sec">Metrics Comparison</div>
+          <div class="card">
+            <div class="scroll-tbl" style="max-height:none">
+              <table class="tbl" id="optMetricsTbl">
+                <thead><tr>
+                  <th>#</th><th>Strategies</th><th class="r">Sharpe (W)</th><th class="r">Sharpe (OOS)</th>
+                  <th class="r">Return (W)</th><th class="r">Return (OOS)</th>
+                  <th class="r">MaxDD (W)</th><th class="r">MaxDD (Full)</th>
+                  <th class="r">Calmar</th><th class="r">Win%</th><th class="r">PF</th>
+                </tr></thead>
+                <tbody id="optMetricsBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="sec">Monthly P/L &mdash; Selected Portfolio</div>
+          <div class="card"><div class="cw"><canvas id="optMonthlyChart" height="220"></canvas></div></div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -995,10 +1131,23 @@ function buildDailyMargins(trades) {
     dowStratAvg[dow].push(d.stratCount);
   });
 
+  // Daily P&L aggregation (by close date)
+  const dailyPL = {};
+  trades.forEach(t => {
+    const d = t.dateClose || t.dateOpen;
+    if (!d) return;
+    const key = new Date(d).toISOString().slice(0,10);
+    if (!dailyPL[key]) dailyPL[key] = { date: new Date(d), pl: 0 };
+    dailyPL[key].pl += t.pl;
+  });
+  const dailyPLArr = Object.values(dailyPL).sort((a,b) => a.date - b.date);
+  const worstDay = dailyPLArr.length ? dailyPLArr.reduce((w, d) => d.pl < w.pl ? d : w, dailyPLArr[0]) : null;
+
   return {
     days, margins, stratCounts,
     avg, max, min,
     maxConcurrent, avgConcurrent,
+    dailyPLArr, worstDay,
     dowAvg:      dowAvg.map(b => b.length ? b.reduce((a,v)=>a+v,0)/b.length : 0),
     dowMax:      dowMax.map(b => b.length ? Math.max(...b) : 0),
     dowCounts:   dowAvg.map(b => b.length),
@@ -1360,6 +1509,7 @@ function renderMarginKpis(m) {
     {c:'g', l:'Minimum Margin',               v:'$'+Math.round(m.min).toLocaleString('it-IT'),              s:'Day with least exposure'},
     {c:'o', l:'Peak Margin Day',   v:dn[miMarg]+' · $'+Math.round(m.dowAvg[miMarg]).toLocaleString('it-IT'), s:'Weekday with highest average margin'},
     {c:'p', l:'Trading Days',             v:m.days.length,                                              s:'Days with at least 1 open position'},
+    {c:'r', l:'Max Daily Loss',              v:m.worstDay ? '$'+Math.round(m.worstDay.pl).toLocaleString('it-IT') : '—', s:m.worstDay ? m.worstDay.date.toLocaleDateString('it-IT') : 'N/A'},
     {c:'r', l:'Max Concurrent Strategies',  v:m.maxConcurrent,                                            s:'All-time peak in un singolo giorno'},
     {c:'b', l:'Avg Concurrent Strategies',v:m.avgConcurrent.toFixed(1),                                 s:'Daily average across all trading days'},
     {c:'o', l:'Peak Concurrent Day',  v:dn[miStrat]+' · '+m.dowStratAvg[miStrat].toFixed(1),        s:'Avg no. of strategies open simultaneously'},
@@ -2405,6 +2555,7 @@ function switchTab(id) {
   if(id==='vix') renderVIX();
   if(id==='trades') renderTradeLog();
   if(id==='detail') { renderDetail(); }
+  if(id==='optimizer') { /* no auto-render, user clicks Run */ }
 }
 document.getElementById('tabs').addEventListener('click',e=>{
   if(e.target.classList.contains('tab')) switchTab(e.target.dataset.tab);
@@ -3156,6 +3307,449 @@ Struttura la risposta con sezioni chiare. Sii diretto e pratico, as a profession
     loading.style.display = 'none';
     hideProgress();
   }
+}
+
+// ── ROLLING WINDOW PORTFOLIO OPTIMIZER ─────────────────────────────────────────
+function buildMonthlyPLByStrategy(trades, strategies) {
+  // Returns { strategyName: { "YYYY-MM": totalPL, ... }, ... }
+  const result = {};
+  strategies.forEach(s => { result[s] = {}; });
+  trades.forEach(t => {
+    const d = t.dateClose || t.dateOpen;
+    if (!d || !result[t.strategy]) return;
+    const key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+    result[t.strategy][key] = (result[t.strategy][key] || 0) + t.pl;
+  });
+  return result;
+}
+
+function getAllMonthKeys(trades) {
+  const set = new Set();
+  trades.forEach(t => {
+    const d = t.dateClose || t.dateOpen;
+    if (!d) return;
+    set.add(d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0'));
+  });
+  return [...set].sort();
+}
+
+function* generateCombinations(arr, minK, maxK) {
+  const n = arr.length;
+  for (let k = minK; k <= Math.min(maxK, n); k++) {
+    const indices = Array.from({length: k}, (_, i) => i);
+    while (true) {
+      yield indices.map(i => arr[i]);
+      let i = k - 1;
+      while (i >= 0 && indices[i] === n - k + i) i--;
+      if (i < 0) break;
+      indices[i]++;
+      for (let j = i + 1; j < k; j++) indices[j] = indices[j-1] + 1;
+    }
+  }
+}
+
+function evaluateMonthlyPL(monthlyPLs, combo, sizes, months) {
+  // combo: array of strategy names, sizes: array of ints, months: sorted month keys
+  const pls = months.map(m => {
+    let sum = 0;
+    combo.forEach((s, i) => { sum += (monthlyPLs[s][m] || 0) * sizes[i]; });
+    return sum;
+  });
+  if (!pls.length) return null;
+  const totalPL = pls.reduce((a,b) => a+b, 0);
+  const mean = totalPL / pls.length;
+  const std = Math.sqrt(pls.reduce((a,v) => a + (v-mean)**2, 0) / pls.length);
+  const sharpe = std > 0 ? (mean / std) * Math.sqrt(12) : 0;
+
+  // Max drawdown
+  let cum = 0, peak = 0, maxDD = 0;
+  pls.forEach(v => { cum += v; peak = Math.max(peak, cum); maxDD = Math.min(maxDD, cum - peak); });
+
+  // Calmar
+  const annReturn = mean * 12;
+  const calmar = maxDD < 0 ? annReturn / Math.abs(maxDD) : (annReturn > 0 ? 999 : 0);
+
+  // Win rate & profit factor
+  const wins = pls.filter(v => v > 0);
+  const losses = pls.filter(v => v < 0);
+  const winRate = pls.length ? wins.length / pls.length * 100 : 0;
+  const grossW = wins.reduce((a,b) => a+b, 0);
+  const grossL = Math.abs(losses.reduce((a,b) => a+b, 0));
+  const pf = grossL > 0 ? grossW / grossL : (grossW > 0 ? 999 : 0);
+
+  // Sortino
+  const downDev = Math.sqrt(pls.filter(v=>v<0).reduce((a,v) => a + v*v, 0) / pls.length);
+  const sortino = downDev > 0 ? (mean / downDev) * Math.sqrt(12) : 0;
+
+  return { totalPL, mean, sharpe, maxDD, calmar, winRate, pf, sortino };
+}
+
+function runOptimizer() {
+  const base = window._G || G;
+  const trades = base.trades;
+  const strategies = base.strategies;
+  const btn = document.getElementById('optRunBtn');
+  const status = document.getElementById('optStatus');
+  const resultsWrap = document.getElementById('optResultsWrap');
+
+  const windowMonths = parseInt(document.getElementById('optWindow').value);
+  const maxStrats = Math.min(parseInt(document.getElementById('optMaxStrats').value) || 6, strategies.length);
+  const maxSize = parseInt(document.getElementById('optMaxSize').value) || 1;
+  const topN = parseInt(document.getElementById('optTopN').value) || 5;
+
+  if (strategies.length < 2) { status.textContent = 'Need at least 2 strategies.'; return; }
+
+  btn.disabled = true;
+  status.textContent = 'Building monthly data...';
+  resultsWrap.style.display = 'none';
+
+  // Use requestAnimationFrame to keep UI responsive
+  requestAnimationFrame(() => {
+    const monthlyPLs = buildMonthlyPLByStrategy(trades, strategies);
+    const allMonths = getAllMonthKeys(trades);
+
+    if (allMonths.length < 3) {
+      status.textContent = 'Not enough monthly data.';
+      btn.disabled = false;
+      return;
+    }
+
+    const actualWindow = Math.min(windowMonths, allMonths.length);
+    const windowStart = allMonths.length - actualWindow;
+    const windowMonthKeys = allMonths.slice(windowStart);
+    const oosMonthKeys = allMonths.slice(0, windowStart);
+
+    status.textContent = `Window: ${windowMonthKeys[0]} to ${windowMonthKeys[windowMonthKeys.length-1]} (${windowMonthKeys.length} months)`;
+
+    // Enumerate all combinations — keep only top N in memory (bounded heap)
+    let evaluated = 0;
+    const heapSize = topN * 2; // keep 2x to allow dedup later
+    const topResults = []; // bounded array sorted by sharpe descending
+    let minSharpeInHeap = -Infinity;
+
+    function insertResult(entry) {
+      // Only compute full/oos metrics if this entry qualifies for top heap
+      if (topResults.length >= heapSize && entry.wm.sharpe <= minSharpeInHeap) return;
+      // Compute full and oos metrics only for promising candidates
+      entry.fm = evaluateMonthlyPL(monthlyPLs, entry.combo, entry.sizes, allMonths);
+      entry.om = oosMonthKeys.length >= 2 ? evaluateMonthlyPL(monthlyPLs, entry.combo, entry.sizes, oosMonthKeys) : null;
+      topResults.push(entry);
+      topResults.sort((a, b) => b.wm.sharpe - a.wm.sharpe);
+      if (topResults.length > heapSize) topResults.length = heapSize;
+      minSharpeInHeap = topResults[topResults.length - 1].wm.sharpe;
+    }
+
+    for (const combo of generateCombinations(strategies, 2, maxStrats)) {
+      if (maxSize === 1) {
+        const sizes = combo.map(() => 1);
+        const wm = evaluateMonthlyPL(monthlyPLs, combo, sizes, windowMonthKeys);
+        if (wm) insertResult({ combo: [...combo], sizes: [...sizes], wm, fm: null, om: null });
+        evaluated++;
+      } else {
+        const k = combo.length;
+        const totalPerms = Math.pow(maxSize, k);
+        for (let p = 0; p < totalPerms; p++) {
+          const sizes = [];
+          let rem = p;
+          for (let j = 0; j < k; j++) {
+            sizes.push((rem % maxSize) + 1);
+            rem = Math.floor(rem / maxSize);
+          }
+          const wm = evaluateMonthlyPL(monthlyPLs, combo, sizes, windowMonthKeys);
+          if (wm) insertResult({ combo: [...combo], sizes: [...sizes], wm, fm: null, om: null });
+          evaluated++;
+        }
+      }
+    }
+
+    // Deduplicate and trim to final topN
+    const seen = new Set();
+    const finalResults = [];
+    for (const r of topResults) {
+      const key = r.combo.map((s,i) => s + ':' + r.sizes[i]).join('|');
+      if (seen.has(key)) continue;
+      seen.add(key);
+      finalResults.push(r);
+      if (finalResults.length >= topN) break;
+    }
+    topResults.length = 0; // free memory
+
+    status.textContent = `Evaluated ${evaluated.toLocaleString()} combinations. Showing top ${finalResults.length}.`;
+    btn.disabled = false;
+
+    if (!finalResults.length) {
+      status.textContent = 'No valid combinations found.';
+      return;
+    }
+
+    // Store for rendering
+    window._optResults = finalResults;
+    window._optAllMonths = allMonths;
+    window._optMonthlyPLs = monthlyPLs;
+    window._optWindowStart = windowStart;
+
+    renderOptimizerResults(finalResults, allMonths, monthlyPLs, windowStart);
+  });
+}
+
+function renderOptimizerResults(results, allMonths, monthlyPLs, windowStart) {
+  const base = window._G || G;
+  const resultsWrap = document.getElementById('optResultsWrap');
+  resultsWrap.style.display = 'block';
+
+  document.getElementById('optCriteriaLabel').textContent =
+    `— ranked by Sharpe on ${allMonths.slice(windowStart).length}-month window`;
+
+  // Portfolio cards
+  const cardsHTML = results.map((r, idx) => {
+    const wm = r.wm, fm = r.fm, om = r.om;
+    const color = STRATEGY_COLORS[idx % STRATEGY_COLORS.length];
+    const stratsHTML = r.combo.map((s, i) => {
+      const c = base.stratColors[s] || '#aab8cc';
+      const sz = r.sizes[i] > 1 ? ` <span style="color:var(--gold)">×${r.sizes[i]}</span>` : '';
+      return `<span class="dot" style="background:${c}"></span>${shortStrat(s)}${sz}`;
+    }).join(' &nbsp;·&nbsp; ');
+
+    const oosSharpeTxt = om ? om.sharpe.toFixed(2) : '—';
+    const oosColor = om ? (om.sharpe >= wm.sharpe * 0.5 ? 'var(--accent)' : 'var(--red)') : 'var(--muted)';
+
+    return `<div class="opt-pcard" onclick="selectOptPortfolio(${idx})" id="optCard_${idx}">
+      <div class="opt-pcard-title">
+        <span style="color:${color}">Portfolio #${idx+1}</span>
+        <span style="font-size:9px;color:var(--muted)">${r.combo.length} strategies</span>
+      </div>
+      <div class="opt-pcard-kpis">
+        <div class="opt-pk"><div class="pk-l">Sharpe (W)</div><div class="pk-v" style="color:${wm.sharpe>=1?'var(--accent)':'var(--gold)'}">${wm.sharpe.toFixed(2)}</div></div>
+        <div class="opt-pk"><div class="pk-l">Sharpe (OOS)</div><div class="pk-v" style="color:${oosColor}">${oosSharpeTxt}</div></div>
+        <div class="opt-pk"><div class="pk-l">Return (W)</div><div class="pk-v" style="color:${wm.totalPL>=0?'var(--accent)':'var(--red)'}">${fmt$(wm.totalPL)}</div></div>
+        <div class="opt-pk"><div class="pk-l">Max DD (Full)</div><div class="pk-v" style="color:var(--red)">${fmt$(fm.maxDD)}</div></div>
+        <div class="opt-pk"><div class="pk-l">Calmar</div><div class="pk-v" style="color:var(--blue)">${wm.calmar >= 999 ? '∞' : wm.calmar.toFixed(2)}</div></div>
+        <div class="opt-pk"><div class="pk-l">Win%</div><div class="pk-v" style="color:${wm.winRate>=50?'var(--accent)':'var(--red)'}">${wm.winRate.toFixed(0)}%</div></div>
+      </div>
+      <div class="opt-strats">${stratsHTML}</div>
+      <span class="opt-load-btn" onclick="event.stopPropagation();loadOptPortfolio(${idx})">&#9654; Load into selector</span>
+    </div>`;
+  }).join('');
+  document.getElementById('optCardsGrid').innerHTML = cardsHTML;
+
+  // Metrics table
+  document.getElementById('optMetricsBody').innerHTML = results.map((r, idx) => {
+    const wm = r.wm, fm = r.fm, om = r.om;
+    const color = STRATEGY_COLORS[idx % STRATEGY_COLORS.length];
+    const stratsShort = r.combo.map((s, i) => {
+      const sz = r.sizes[i] > 1 ? `×${r.sizes[i]}` : '';
+      return shortStrat(s).substring(0,18) + sz;
+    }).join(', ');
+    return `<tr style="cursor:pointer" onclick="selectOptPortfolio(${idx})">
+      <td style="color:${color};font-family:'Space Mono',monospace;font-weight:700">#${idx+1}</td>
+      <td style="font-size:10px" title="${r.combo.join(', ')}">${stratsShort}</td>
+      <td class="${wm.sharpe>=1?'tg':'tr'}">${wm.sharpe.toFixed(2)}</td>
+      <td class="${om&&om.sharpe>=0.5?'tg':'tr'}">${om ? om.sharpe.toFixed(2) : '—'}</td>
+      <td class="${wm.totalPL>=0?'tg':'tr'}">${fmt$(wm.totalPL)}</td>
+      <td class="${om&&om.totalPL>=0?'tg':'tr'}">${om ? fmt$(om.totalPL) : '—'}</td>
+      <td class="tr">${fmt$(wm.maxDD)}</td>
+      <td class="tr">${fmt$(fm.maxDD)}</td>
+      <td class="${wm.calmar>=1?'tg':'tn'}">${wm.calmar>=999?'∞':wm.calmar.toFixed(2)}</td>
+      <td class="${wm.winRate>=50?'tg':'tr'}">${wm.winRate.toFixed(0)}%</td>
+      <td class="${wm.pf>=1.5?'tg':'tr'}">${wm.pf>=999?'∞':wm.pf.toFixed(2)}</td>
+    </tr>`;
+  }).join('');
+
+  // Draw equity curves
+  requestAnimationFrame(() => {
+    drawOptimizerEquity(results, allMonths, monthlyPLs, windowStart);
+    // Select first portfolio by default
+    selectOptPortfolio(0);
+  });
+}
+
+function drawOptimizerEquity(results, allMonths, monthlyPLs, windowStart) {
+  const r = setupCanvas('optEqChart', 280);
+  if (!r) return;
+  const {ctx, W, H} = r;
+  const pL = 64, pR = 16, pT = 20, pB = 30;
+  const cw = W - pL - pR, ch = H - pT - pB;
+  const n = allMonths.length;
+  if (n < 2) return;
+  const muted = '#546a87', border = '#1c2a40';
+
+  // Build equity for each portfolio
+  const equities = results.map(res => {
+    let cum = 0;
+    return allMonths.map(m => {
+      let sum = 0;
+      res.combo.forEach((s, i) => { sum += (monthlyPLs[s][m] || 0) * res.sizes[i]; });
+      cum += sum;
+      return cum;
+    });
+  });
+
+  const allVals = equities.flat();
+  const minV = Math.min(...allVals, 0), maxV = Math.max(...allVals, 1);
+  const xS = i => pL + (i / (n - 1)) * cw;
+  const yS = v => pT + ch - ((v - minV) / (maxV - minV || 1)) * ch;
+
+  // OOS background shading
+  if (windowStart > 0 && windowStart < n) {
+    const wxX = xS(windowStart);
+    // OOS region
+    ctx.fillStyle = 'rgba(79,158,255,.04)';
+    ctx.fillRect(pL, pT, wxX - pL, ch);
+    // Window region
+    ctx.fillStyle = 'rgba(240,180,41,.04)';
+    ctx.fillRect(wxX, pT, pL + cw - wxX, ch);
+    // Divider line
+    ctx.strokeStyle = 'rgba(240,180,41,.5)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([6, 4]);
+    ctx.beginPath(); ctx.moveTo(wxX, pT); ctx.lineTo(wxX, pT + ch); ctx.stroke();
+    ctx.setLineDash([]);
+    // Labels
+    ctx.fillStyle = 'rgba(79,158,255,.6)';
+    ctx.font = '9px Space Mono,monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('OUT-OF-SAMPLE', pL + (wxX - pL) / 2, pT + 12);
+    ctx.fillStyle = 'rgba(240,180,41,.6)';
+    ctx.fillText('OPTIMIZATION WINDOW', wxX + (pL + cw - wxX) / 2, pT + 12);
+  }
+
+  // Grid
+  for (let i = 0; i <= 4; i++) {
+    const y = pT + ch / 4 * i;
+    ctx.strokeStyle = border; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(pL, y); ctx.lineTo(pL + cw, y); ctx.stroke();
+    const v = maxV - (maxV - minV) / 4 * i;
+    ctx.fillStyle = muted; ctx.font = '9px Space Mono,monospace'; ctx.textAlign = 'right';
+    ctx.fillText((v >= 0 ? '' : '-') + '$' + Math.round(Math.abs(v) / 1000) + 'k', pL - 4, y + 3);
+  }
+
+  // Zero line
+  if (minV < 0) {
+    const zy = yS(0);
+    ctx.strokeStyle = 'rgba(255,255,255,.15)'; ctx.lineWidth = 1; ctx.setLineDash([4, 4]);
+    ctx.beginPath(); ctx.moveTo(pL, zy); ctx.lineTo(pL + cw, zy); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Draw equity lines
+  equities.forEach((eq, idx) => {
+    const color = STRATEGY_COLORS[idx % STRATEGY_COLORS.length];
+    ctx.strokeStyle = color;
+    ctx.lineWidth = idx === (window._optSelectedIdx || 0) ? 2.5 : 1.2;
+    ctx.globalAlpha = idx === (window._optSelectedIdx || 0) ? 1 : 0.5;
+    ctx.beginPath();
+    eq.forEach((v, i) => i === 0 ? ctx.moveTo(xS(i), yS(v)) : ctx.lineTo(xS(i), yS(v)));
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  });
+
+  // X axis — month labels (show every few months)
+  ctx.fillStyle = muted; ctx.font = '9px Space Mono,monospace'; ctx.textAlign = 'center';
+  const step = Math.max(1, Math.floor(n / 12));
+  allMonths.forEach((m, i) => {
+    if (i % step === 0 || i === n - 1) {
+      ctx.fillText(m, xS(i), H - 4);
+    }
+  });
+
+  // Legend
+  results.forEach((res, idx) => {
+    const color = STRATEGY_COLORS[idx % STRATEGY_COLORS.length];
+    const lx = pL + idx * 80;
+    ctx.fillStyle = color; ctx.fillRect(lx, H - 28, 10, 3);
+    ctx.fillStyle = '#dde6f0'; ctx.font = '8px Space Mono,monospace'; ctx.textAlign = 'left';
+    ctx.fillText('#' + (idx+1), lx + 14, H - 25);
+  });
+}
+
+function drawOptMonthlyChart(result, allMonths, monthlyPLs, windowStart) {
+  const r = setupCanvas('optMonthlyChart', 220);
+  if (!r) return;
+  const {ctx, W, H} = r;
+  const pL = 56, pR = 12, pT = 20, pB = 32;
+  const cw = W - pL - pR, ch = H - pT - pB;
+  const n = allMonths.length;
+  if (n < 1) return;
+  const muted = '#546a87', border = '#1c2a40';
+
+  // Monthly P/L
+  const monthlyPL = allMonths.map(m => {
+    let sum = 0;
+    result.combo.forEach((s, i) => { sum += (monthlyPLs[s][m] || 0) * result.sizes[i]; });
+    return sum;
+  });
+
+  const maxAbs = Math.max(...monthlyPL.map(Math.abs), 1);
+  const barW = cw / n;
+  const halfH = ch / 2;
+  const zeroY = pT + halfH;
+
+  // Grid
+  ctx.strokeStyle = border; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(pL, zeroY); ctx.lineTo(pL + cw, zeroY); ctx.stroke();
+  ctx.fillStyle = muted; ctx.font = '9px Space Mono,monospace'; ctx.textAlign = 'right';
+  ctx.fillText('$0', pL - 4, zeroY + 3);
+
+  // OOS / Window shading
+  if (windowStart > 0 && windowStart < n) {
+    const wxX = pL + windowStart * barW;
+    ctx.fillStyle = 'rgba(79,158,255,.04)';
+    ctx.fillRect(pL, pT, wxX - pL, ch);
+    ctx.fillStyle = 'rgba(240,180,41,.04)';
+    ctx.fillRect(wxX, pT, pL + cw - wxX, ch);
+    ctx.strokeStyle = 'rgba(240,180,41,.5)'; ctx.lineWidth = 1; ctx.setLineDash([4, 4]);
+    ctx.beginPath(); ctx.moveTo(wxX, pT); ctx.lineTo(wxX, pT + ch); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  monthlyPL.forEach((v, i) => {
+    const bh = Math.abs(v) / maxAbs * halfH;
+    const x = pL + i * barW;
+    const y = v >= 0 ? zeroY - bh : zeroY;
+    ctx.fillStyle = v >= 0 ? 'rgba(0,212,170,.75)' : 'rgba(255,77,106,.75)';
+    ctx.fillRect(x + 1, y, barW - 2, bh || 1);
+  });
+
+  // X labels
+  ctx.fillStyle = muted; ctx.font = '8px Space Mono,monospace'; ctx.textAlign = 'center';
+  const step = Math.max(1, Math.floor(n / 10));
+  allMonths.forEach((m, i) => {
+    if (i % step === 0) ctx.fillText(m.slice(2), pL + i * barW + barW / 2, H - 6);
+  });
+}
+
+function selectOptPortfolio(idx) {
+  window._optSelectedIdx = idx;
+  document.querySelectorAll('.opt-pcard').forEach((el, i) => {
+    el.classList.toggle('selected', i === idx);
+  });
+  const results = window._optResults;
+  const allMonths = window._optAllMonths;
+  const monthlyPLs = window._optMonthlyPLs;
+  const windowStart = window._optWindowStart;
+  if (!results) return;
+  requestAnimationFrame(() => {
+    drawOptimizerEquity(results, allMonths, monthlyPLs, windowStart);
+    drawOptMonthlyChart(results[idx], allMonths, monthlyPLs, windowStart);
+  });
+}
+
+function loadOptPortfolio(idx) {
+  const results = window._optResults;
+  if (!results || !results[idx]) return;
+  const base = window._G || G;
+  const r = results[idx];
+
+  if (!window._stratSizes) window._stratSizes = {};
+  window._selectedStrats = new Set(r.combo);
+  r.combo.forEach((s, i) => { window._stratSizes[s] = r.sizes[i]; });
+
+  if (document.getElementById('subPortBanner').style.display === 'flex') exitSubPortfolio();
+  switchTab('strategies');
+  setTimeout(() => {
+    const lp = document.getElementById('livePanel');
+    if (lp) lp.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 150);
 }
 
 // ── ZOOM ──────────────────────────────────────────────────────────────────────
