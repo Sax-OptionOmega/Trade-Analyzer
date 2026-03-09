@@ -3381,7 +3381,7 @@ function evaluateMonthlyPL(monthlyPLs, combo, sizes, months) {
   const downDev = Math.sqrt(pls.filter(v=>v<0).reduce((a,v) => a + v*v, 0) / pls.length);
   const sortino = downDev > 0 ? (mean / downDev) * Math.sqrt(12) : 0;
 
-  return { totalPL, mean, sharpe, maxDD, calmar, winRate, pf, sortino, pls };
+  return { totalPL, mean, sharpe, maxDD, calmar, winRate, pf, sortino };
 }
 
 function runOptimizer() {
@@ -3421,23 +3421,31 @@ function runOptimizer() {
 
     status.textContent = `Window: ${windowMonthKeys[0]} to ${windowMonthKeys[windowMonthKeys.length-1]} (${windowMonthKeys.length} months)`;
 
-    // Enumerate all combinations and size permutations
+    // Enumerate all combinations — keep only top N in memory (bounded heap)
     let evaluated = 0;
-    const results = []; // { combo, sizes, windowMetrics, fullMetrics, oosMetrics }
+    const heapSize = topN * 2; // keep 2x to allow dedup later
+    const topResults = []; // bounded array sorted by sharpe descending
+    let minSharpeInHeap = -Infinity;
+
+    function insertResult(entry) {
+      // Only compute full/oos metrics if this entry qualifies for top heap
+      if (topResults.length >= heapSize && entry.wm.sharpe <= minSharpeInHeap) return;
+      // Compute full and oos metrics only for promising candidates
+      entry.fm = evaluateMonthlyPL(monthlyPLs, entry.combo, entry.sizes, allMonths);
+      entry.om = oosMonthKeys.length >= 2 ? evaluateMonthlyPL(monthlyPLs, entry.combo, entry.sizes, oosMonthKeys) : null;
+      topResults.push(entry);
+      topResults.sort((a, b) => b.wm.sharpe - a.wm.sharpe);
+      if (topResults.length > heapSize) topResults.length = heapSize;
+      minSharpeInHeap = topResults[topResults.length - 1].wm.sharpe;
+    }
 
     for (const combo of generateCombinations(strategies, 2, maxStrats)) {
       if (maxSize === 1) {
-        // Simple case: all sizes = 1
         const sizes = combo.map(() => 1);
         const wm = evaluateMonthlyPL(monthlyPLs, combo, sizes, windowMonthKeys);
-        if (wm) {
-          const fm = evaluateMonthlyPL(monthlyPLs, combo, sizes, allMonths);
-          const om = oosMonthKeys.length >= 2 ? evaluateMonthlyPL(monthlyPLs, combo, sizes, oosMonthKeys) : null;
-          results.push({ combo: [...combo], sizes: [...sizes], wm, fm, om });
-        }
+        if (wm) insertResult({ combo: [...combo], sizes: [...sizes], wm, fm: null, om: null });
         evaluated++;
       } else {
-        // Enumerate size permutations (1..maxSize for each strategy in combo)
         const k = combo.length;
         const totalPerms = Math.pow(maxSize, k);
         for (let p = 0; p < totalPerms; p++) {
@@ -3448,45 +3456,39 @@ function runOptimizer() {
             rem = Math.floor(rem / maxSize);
           }
           const wm = evaluateMonthlyPL(monthlyPLs, combo, sizes, windowMonthKeys);
-          if (wm) {
-            const fm = evaluateMonthlyPL(monthlyPLs, combo, sizes, allMonths);
-            const om = oosMonthKeys.length >= 2 ? evaluateMonthlyPL(monthlyPLs, combo, sizes, oosMonthKeys) : null;
-            results.push({ combo: [...combo], sizes: [...sizes], wm, fm, om });
-          }
+          if (wm) insertResult({ combo: [...combo], sizes: [...sizes], wm, fm: null, om: null });
           evaluated++;
         }
       }
     }
 
-    // Rank by window Sharpe (primary), deduplicate similar combos
-    results.sort((a, b) => b.wm.sharpe - a.wm.sharpe);
-
-    // Take top N unique compositions (by combo+sizes fingerprint)
+    // Deduplicate and trim to final topN
     const seen = new Set();
-    const topResults = [];
-    for (const r of results) {
+    const finalResults = [];
+    for (const r of topResults) {
       const key = r.combo.map((s,i) => s + ':' + r.sizes[i]).join('|');
       if (seen.has(key)) continue;
       seen.add(key);
-      topResults.push(r);
-      if (topResults.length >= topN) break;
+      finalResults.push(r);
+      if (finalResults.length >= topN) break;
     }
+    topResults.length = 0; // free memory
 
-    status.textContent = `Evaluated ${evaluated.toLocaleString()} combinations. Showing top ${topResults.length}.`;
+    status.textContent = `Evaluated ${evaluated.toLocaleString()} combinations. Showing top ${finalResults.length}.`;
     btn.disabled = false;
 
-    if (!topResults.length) {
+    if (!finalResults.length) {
       status.textContent = 'No valid combinations found.';
       return;
     }
 
     // Store for rendering
-    window._optResults = topResults;
+    window._optResults = finalResults;
     window._optAllMonths = allMonths;
     window._optMonthlyPLs = monthlyPLs;
     window._optWindowStart = windowStart;
 
-    renderOptimizerResults(topResults, allMonths, monthlyPLs, windowStart);
+    renderOptimizerResults(finalResults, allMonths, monthlyPLs, windowStart);
   });
 }
 
