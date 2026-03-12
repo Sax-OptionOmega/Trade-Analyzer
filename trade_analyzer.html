@@ -4146,30 +4146,85 @@ function runWalkForward() {
     // Find best portfolio on train window
     let bestCombo = null, bestSizes = null, bestScore = -Infinity, bestTrainMetrics = null;
 
-    for (const combo of generateCombinations(strategies, minStrats, maxStrats)) {
-      // Skip combinations with too few trades in the train window
-      if (minTrades > 0 && countTradesInWindow(periodCounts, combo, trainPeriods) < minTrades) continue;
-      if (maxSize === 1) {
-        const sizes = combo.map(() => 1);
-        const wm = evaluateMonthlyPL(periodPLs, combo, sizes, trainPeriods);
-        if (wm) {
-          const score = getScore(wm);
-          if (score > bestScore) {
-            bestScore = score; bestCombo = [...combo]; bestSizes = [...sizes]; bestTrainMetrics = wm;
+    const useGreedy = maxSize === 1 && (objective === 'winRate' || objective === 'winRateTrend');
+
+    if (useGreedy) {
+      // ── FAST GREEDY PATH for WinRate/WinRateTrend with size=1 ──
+      // 1. Compute each strategy's period P&L and individual score
+      var stratScores = [];
+      strategies.forEach(function(s) {
+        if (minTrades > 0) {
+          var tc = 0;
+          trainPeriods.forEach(function(m) { tc += (periodCounts[s][m] || 0); });
+          if (tc < Math.floor(minTrades / minStrats)) return; // skip strategies with very few trades
+        }
+        var pls = trainPeriods.map(function(m) { return periodPLs[s][m] || 0; });
+        var winCount = pls.filter(function(v) { return v > 0; }).length;
+        var wr = pls.length > 0 ? winCount / pls.length * 100 : 0;
+        stratScores.push({ name: s, pls: pls, winRate: wr });
+      });
+      stratScores.sort(function(a, b) { return b.winRate - a.winRate; });
+
+      if (stratScores.length >= minStrats) {
+        // 2. Start with top minStrats strategies
+        var selected = stratScores.slice(0, minStrats);
+        var cumPls = trainPeriods.map(function(_, pi) {
+          var sum = 0;
+          selected.forEach(function(s) { sum += s.pls[pi]; });
+          return sum;
+        });
+
+        // 3. Greedily add more if they improve the score
+        for (var gi = minStrats; gi < stratScores.length && selected.length < maxStrats; gi++) {
+          var candidate = stratScores[gi];
+          var newPls = cumPls.map(function(v, pi) { return v + candidate.pls[pi]; });
+          var newWins = newPls.filter(function(v) { return v > 0; }).length;
+          var curWins = cumPls.filter(function(v) { return v > 0; }).length;
+          if (newWins >= curWins) {
+            selected.push(candidate);
+            cumPls = newPls;
           }
         }
-      } else {
-        const k = combo.length;
-        const totalPerms = Math.pow(maxSize, k);
-        for (let p = 0; p < totalPerms; p++) {
-          const sizes = [];
-          let rem = p;
-          for (let j = 0; j < k; j++) { sizes.push((rem % maxSize) + 1); rem = Math.floor(rem / maxSize); }
+
+        // 4. Evaluate the final combo properly
+        var greedyCombo = selected.map(function(s) { return s.name; });
+        var greedySizes = greedyCombo.map(function() { return 1; });
+        if (minTrades <= 0 || countTradesInWindow(periodCounts, greedyCombo, trainPeriods) >= minTrades) {
+          var wm = evaluateMonthlyPL(periodPLs, greedyCombo, greedySizes, trainPeriods);
+          if (wm) {
+            bestScore = getScore(wm);
+            bestCombo = greedyCombo;
+            bestSizes = greedySizes;
+            bestTrainMetrics = wm;
+          }
+        }
+      }
+    } else {
+      // ── BRUTE FORCE PATH for other objectives or size > 1 ──
+      for (const combo of generateCombinations(strategies, minStrats, maxStrats)) {
+        if (minTrades > 0 && countTradesInWindow(periodCounts, combo, trainPeriods) < minTrades) continue;
+        if (maxSize === 1) {
+          const sizes = combo.map(() => 1);
           const wm = evaluateMonthlyPL(periodPLs, combo, sizes, trainPeriods);
           if (wm) {
             const score = getScore(wm);
             if (score > bestScore) {
               bestScore = score; bestCombo = [...combo]; bestSizes = [...sizes]; bestTrainMetrics = wm;
+            }
+          }
+        } else {
+          const k = combo.length;
+          const totalPerms = Math.pow(maxSize, k);
+          for (let p = 0; p < totalPerms; p++) {
+            const sizes = [];
+            let rem = p;
+            for (let j = 0; j < k; j++) { sizes.push((rem % maxSize) + 1); rem = Math.floor(rem / maxSize); }
+            const wm = evaluateMonthlyPL(periodPLs, combo, sizes, trainPeriods);
+            if (wm) {
+              const score = getScore(wm);
+              if (score > bestScore) {
+                bestScore = score; bestCombo = [...combo]; bestSizes = [...sizes]; bestTrainMetrics = wm;
+              }
             }
           }
         }
