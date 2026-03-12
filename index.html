@@ -726,11 +726,11 @@ input[type=range].zslider::-webkit-slider-thumb {
           <div class="opt-field">
             <label>Optimize For</label>
             <select class="opt-select" id="optObjective">
-              <option value="sharpe" selected>Sharpe</option>
+              <option value="sharpe">Sharpe</option>
               <option value="equity">Equity (Total P&L)</option>
               <option value="winRate">Win %</option>
               <option value="maxDD">Min Max DD</option>
-              <option value="pf">Risk/Reward (PF)</option>
+              <option value="pf" selected>Risk/Reward (PF)</option>
               <option value="r2">R² (Equity Linearity)</option>
             </select>
           </div>
@@ -773,7 +773,7 @@ input[type=range].zslider::-webkit-slider-thumb {
             </div>
             <div class="opt-field">
               <label>Test (months)</label>
-              <input type="number" class="opt-input" id="wfTest" min="1" max="24" value="3" style="width:70px">
+              <input type="number" class="opt-input" id="wfTest" min="1" max="24" value="1" style="width:70px">
             </div>
             <div class="opt-field">
               <label>&nbsp;</label>
