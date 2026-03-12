@@ -774,8 +774,8 @@ input[type=range].zslider::-webkit-slider-thumb {
               <input type="number" class="opt-input" id="wfTrain" min="2" max="60" value="6" style="width:70px">
             </div>
             <div class="opt-field">
-              <label>Test (months)</label>
-              <input type="number" class="opt-input" id="wfTest" min="1" max="24" value="1" style="width:70px">
+              <label>Test (days)</label>
+              <input type="number" class="opt-input" id="wfTest" min="7" max="365" value="30" style="width:70px">
             </div>
             <div class="opt-field">
               <label>&nbsp;</label>
@@ -793,8 +793,8 @@ input[type=range].zslider::-webkit-slider-thumb {
             </div>
           </div>
           <div style="font-size:11px;color:var(--muted);line-height:1.6">
-            Simulates a rolling optimization: trains on <strong>Train</strong> months, trades the best portfolio for <strong>Test</strong> months,
-            then repeats from the end of each test window until all data is consumed. Uses the selected fitness function above.
+            Simulates a rolling optimization: trains on <strong>Train</strong> months, trades the best portfolio for <strong>Test</strong> days,
+            then repeats. Test &ge; 28 days uses monthly periods; &lt; 28 days switches to weekly resolution. Uses the selected fitness function above.
           </div>
         </div>
       </div>
@@ -3477,6 +3477,49 @@ function getAllMonthKeys(trades) {
   return [...set].sort();
 }
 
+function getISOWeekKey(d) {
+  // Returns "YYYY-Www" ISO week key
+  var tmp = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  tmp.setDate(tmp.getDate() + 3 - (tmp.getDay() + 6) % 7);
+  var week1 = new Date(tmp.getFullYear(), 0, 4);
+  var wk = 1 + Math.round(((tmp - week1) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7);
+  return tmp.getFullYear() + '-W' + String(wk).padStart(2, '0');
+}
+
+function buildWeeklyPLByStrategy(trades, strategies) {
+  var result = {};
+  strategies.forEach(function(s) { result[s] = {}; });
+  trades.forEach(function(t) {
+    var d = t.dateClose || t.dateOpen;
+    if (!d || !result[t.strategy]) return;
+    var key = getISOWeekKey(d);
+    result[t.strategy][key] = (result[t.strategy][key] || 0) + t.pl;
+  });
+  return result;
+}
+
+function buildWeeklyTradeCountByStrategy(trades, strategies) {
+  var result = {};
+  strategies.forEach(function(s) { result[s] = {}; });
+  trades.forEach(function(t) {
+    var d = t.dateClose || t.dateOpen;
+    if (!d || !result[t.strategy]) return;
+    var key = getISOWeekKey(d);
+    result[t.strategy][key] = (result[t.strategy][key] || 0) + 1;
+  });
+  return result;
+}
+
+function getAllWeekKeys(trades) {
+  var set = new Set();
+  trades.forEach(function(t) {
+    var d = t.dateClose || t.dateOpen;
+    if (!d) return;
+    set.add(getISOWeekKey(d));
+  });
+  return [...set].sort();
+}
+
 function* generateCombinations(arr, minK, maxK) {
   const n = arr.length;
   for (let k = minK; k <= Math.min(maxK, n); k++) {
@@ -3990,8 +4033,8 @@ function runWalkForward() {
   const status = document.getElementById('wfStatus');
   const resultsWrap = document.getElementById('wfResultsWrap');
 
-  const trainLen = parseInt(document.getElementById('wfTrain').value) || 6;
-  const testLen = parseInt(document.getElementById('wfTest').value) || 3;
+  const trainMonthsVal = parseInt(document.getElementById('wfTrain').value) || 6;
+  const testDays = parseInt(document.getElementById('wfTest').value) || 30;
   const minStrats = Math.max(2, parseInt(document.getElementById('optMinStrats').value) || 2);
   const maxStrats = Math.min(Math.max(minStrats, parseInt(document.getElementById('optMaxStrats').value) || 6), strategies.length);
   const maxSize = parseInt(document.getElementById('optMaxSize').value) || 1;
@@ -4000,7 +4043,7 @@ function runWalkForward() {
   const objLabels = { sharpe:'Sharpe', equity:'Equity', winRate:'Win %', maxDD:'Min Max DD', pf:'Risk/Reward (PF)', r2:'R²', expectancy:'Expectancy', winRateTrend:'Win% Trend' };
 
   if (strategies.length < minStrats) { status.textContent = `Need at least ${minStrats} strategies.`; return; }
-  if (trainLen < 2) { status.textContent = 'Train must be at least 2 months.'; return; }
+  if (trainMonthsVal < 2) { status.textContent = 'Train must be at least 2 months.'; return; }
 
   btn.disabled = true;
   resultsWrap.style.display = 'none';
@@ -4019,23 +4062,32 @@ function runWalkForward() {
       case 'maxDD':   return metrics.maxDD;
       case 'pf':      return metrics.pf;
       case 'r2':      return metrics.r2;
+      case 'expectancy': return metrics.expectancy;
+      case 'winRateTrend': return metrics.winRateTrend;
       default:        return metrics.sharpe;
     }
   }
 
-  const monthlyPLs = buildMonthlyPLByStrategy(trades, strategies);
-  const tradeCounts = buildMonthlyTradeCountByStrategy(trades, strategies);
-  const allMonths = getAllMonthKeys(trades);
+  // Determine mode: weekly (testDays < 28) or monthly (testDays >= 28)
+  const useWeekly = testDays < 28;
+  const trainLen = useWeekly ? Math.round(trainMonthsVal * 4.33) : trainMonthsVal;
+  const testLen = useWeekly ? Math.max(1, Math.round(testDays / 7)) : Math.max(1, Math.round(testDays / 30));
+  const modeLabel = useWeekly ? 'weeks' : 'months';
 
-  if (allMonths.length < trainLen + testLen) {
-    status.textContent = `Not enough data: ${allMonths.length} months available, need at least ${trainLen + testLen}.`;
+  // Build period data based on mode
+  const periodPLs = useWeekly ? buildWeeklyPLByStrategy(trades, strategies) : buildMonthlyPLByStrategy(trades, strategies);
+  const periodCounts = useWeekly ? buildWeeklyTradeCountByStrategy(trades, strategies) : buildMonthlyTradeCountByStrategy(trades, strategies);
+  const allPeriods = useWeekly ? getAllWeekKeys(trades) : getAllMonthKeys(trades);
+
+  if (allPeriods.length < trainLen + testLen) {
+    status.textContent = `Not enough data: ${allPeriods.length} ${modeLabel} available, need at least ${trainLen + testLen}.`;
     btn.disabled = false;
     progressWrap.style.display = 'none';
     return;
   }
 
   // Calculate total steps for progress
-  const totalSteps = Math.floor((allMonths.length - trainLen) / testLen) + 1;
+  const totalSteps = Math.floor((allPeriods.length - trainLen) / testLen) + 1;
 
   const steps = [];
   const oosLabels = [];
@@ -4046,7 +4098,7 @@ function runWalkForward() {
   let cursor = 0;
 
   function processStep() {
-    if (cursor + trainLen >= allMonths.length) {
+    if (cursor + trainLen >= allPeriods.length) {
       // Done — build cumulative equity from accumulated data
       btn.disabled = false;
       progressBar.style.width = '100%';
@@ -4072,7 +4124,7 @@ function runWalkForward() {
         tradeDates.push(String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0') + '/' + String(d.getFullYear()).slice(2));
       });
 
-      status.textContent = 'Completed ' + steps.length + ' walk-forward steps. (' + oosTrades.length + ' trades)';
+      status.textContent = 'Completed ' + steps.length + ' walk-forward steps (' + modeLabel + '). (' + oosTrades.length + ' trades)';
       setTimeout(function() { progressWrap.style.display = 'none'; }, 600);
       renderWalkForwardResults(steps, oosLabels, oosPLs, cumEquity, tradeEquity, tradeDates, oosTrades, objLabels[objective] || 'Sharpe');
       return;
@@ -4084,22 +4136,22 @@ function runWalkForward() {
     progressLabel.textContent = `Step ${stepNum} / ~${totalSteps}`;
     status.textContent = `Step ${stepNum}: optimizing...`;
 
-    const trainMonths = allMonths.slice(cursor, cursor + trainLen);
+    const trainPeriods = allPeriods.slice(cursor, cursor + trainLen);
     const testStart = cursor + trainLen;
-    const testEnd = Math.min(testStart + testLen, allMonths.length);
-    const testMonths = allMonths.slice(testStart, testEnd);
+    const testEnd = Math.min(testStart + testLen, allPeriods.length);
+    const testPeriods = allPeriods.slice(testStart, testEnd);
 
-    if (testMonths.length === 0) { cursor = allMonths.length; processStep(); return; }
+    if (testPeriods.length === 0) { cursor = allPeriods.length; processStep(); return; }
 
     // Find best portfolio on train window
     let bestCombo = null, bestSizes = null, bestScore = -Infinity, bestTrainMetrics = null;
 
     for (const combo of generateCombinations(strategies, minStrats, maxStrats)) {
       // Skip combinations with too few trades in the train window
-      if (minTrades > 0 && countTradesInWindow(tradeCounts, combo, trainMonths) < minTrades) continue;
+      if (minTrades > 0 && countTradesInWindow(periodCounts, combo, trainPeriods) < minTrades) continue;
       if (maxSize === 1) {
         const sizes = combo.map(() => 1);
-        const wm = evaluateMonthlyPL(monthlyPLs, combo, sizes, trainMonths);
+        const wm = evaluateMonthlyPL(periodPLs, combo, sizes, trainPeriods);
         if (wm) {
           const score = getScore(wm);
           if (score > bestScore) {
@@ -4113,7 +4165,7 @@ function runWalkForward() {
           const sizes = [];
           let rem = p;
           for (let j = 0; j < k; j++) { sizes.push((rem % maxSize) + 1); rem = Math.floor(rem / maxSize); }
-          const wm = evaluateMonthlyPL(monthlyPLs, combo, sizes, trainMonths);
+          const wm = evaluateMonthlyPL(periodPLs, combo, sizes, trainPeriods);
           if (wm) {
             const score = getScore(wm);
             if (score > bestScore) {
@@ -4125,15 +4177,15 @@ function runWalkForward() {
     }
 
     if (bestCombo) {
-      var testMetrics = evaluateMonthlyPL(monthlyPLs, bestCombo, bestSizes, testMonths);
-      var testPLs = testMonths.map(function(m) {
+      var testMetrics = evaluateMonthlyPL(periodPLs, bestCombo, bestSizes, testPeriods);
+      var testPLs = testPeriods.map(function(m) {
         var sum = 0;
-        bestCombo.forEach(function(s, i) { sum += (monthlyPLs[s][m] || 0) * bestSizes[i]; });
+        bestCombo.forEach(function(s, i) { sum += (periodPLs[s][m] || 0) * bestSizes[i]; });
         return sum;
       });
 
-      // Accumulate monthly data for summary
-      testMonths.forEach(function(m, i) {
+      // Accumulate period data for summary
+      testPeriods.forEach(function(m, i) {
         oosLabels.push(m);
         oosPLs.push(testPLs[i]);
       });
@@ -4141,24 +4193,24 @@ function runWalkForward() {
       // Collect actual trades in test window for equity curve
       var comboSet = {};
       bestCombo.forEach(function(s, i) { comboSet[s] = bestSizes[i]; });
-      var firstMonth = testMonths[0];
-      var lastMonth = testMonths[testMonths.length - 1];
+      var firstPeriod = testPeriods[0];
+      var lastPeriod = testPeriods[testPeriods.length - 1];
       sortedTrades.forEach(function(t) {
         if (!comboSet[t.strategy]) return;
         var d = t.dateClose || t.dateOpen;
         if (!d) return;
-        var mk = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
-        if (mk >= firstMonth && mk <= lastMonth) {
+        var pk = useWeekly ? getISOWeekKey(d) : d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+        if (pk >= firstPeriod && pk <= lastPeriod) {
           oosTrades.push({ date: d, pl: t.pl * comboSet[t.strategy], strategy: t.strategy });
         }
       });
 
       steps.push({
-        trainRange: trainMonths[0] + ' → ' + trainMonths[trainMonths.length-1],
-        testRange: testMonths[0] + ' → ' + testMonths[testMonths.length-1],
+        trainRange: trainPeriods[0] + ' → ' + trainPeriods[trainPeriods.length-1],
+        testRange: testPeriods[0] + ' → ' + testPeriods[testPeriods.length-1],
         combo: bestCombo, sizes: bestSizes,
         trainScore: bestScore, trainMetrics: bestTrainMetrics,
-        testMetrics: testMetrics, testMonths: testMonths, testPLs: testPLs
+        testMetrics: testMetrics, testMonths: testPeriods, testPLs: testPLs
       });
     }
 
