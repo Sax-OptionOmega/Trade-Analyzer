@@ -788,6 +788,12 @@ input[type=range].zslider::-webkit-slider-thumb {
               <span class="opt-status" id="wfStatus"></span>
             </div>
           </div>
+          <div id="wfProgressWrap" style="display:none;margin:8px 0">
+            <div style="background:rgba(255,255,255,0.08);border-radius:4px;height:18px;overflow:hidden;position:relative">
+              <div id="wfProgressBar" style="height:100%;background:var(--gold);border-radius:4px;transition:width 0.2s;width:0%"></div>
+              <span id="wfProgressLabel" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:10px;color:#000;font-weight:600"></span>
+            </div>
+          </div>
           <div style="font-size:11px;color:var(--muted);line-height:1.6">
             Simulates a rolling optimization: trains on <strong>Train</strong> months, trades the best portfolio for <strong>Test</strong> months,
             then repeats from the end of each test window until all data is consumed. Uses the selected fitness function above.
@@ -3941,8 +3947,14 @@ function runWalkForward() {
   if (trainLen < 2) { status.textContent = 'Train must be at least 2 months.'; return; }
 
   btn.disabled = true;
-  status.textContent = 'Running walk-forward...';
   resultsWrap.style.display = 'none';
+
+  const progressWrap = document.getElementById('wfProgressWrap');
+  const progressBar = document.getElementById('wfProgressBar');
+  const progressLabel = document.getElementById('wfProgressLabel');
+  progressWrap.style.display = 'block';
+  progressBar.style.width = '0%';
+  progressLabel.textContent = '';
 
   function getScore(metrics) {
     switch(objective) {
@@ -3955,33 +3967,74 @@ function runWalkForward() {
     }
   }
 
-  requestAnimationFrame(() => {
-    const monthlyPLs = buildMonthlyPLByStrategy(trades, strategies);
-    const allMonths = getAllMonthKeys(trades);
+  const monthlyPLs = buildMonthlyPLByStrategy(trades, strategies);
+  const allMonths = getAllMonthKeys(trades);
 
-    if (allMonths.length < trainLen + testLen) {
-      status.textContent = `Not enough data: ${allMonths.length} months available, need at least ${trainLen + testLen}.`;
+  if (allMonths.length < trainLen + testLen) {
+    status.textContent = `Not enough data: ${allMonths.length} months available, need at least ${trainLen + testLen}.`;
+    btn.disabled = false;
+    progressWrap.style.display = 'none';
+    return;
+  }
+
+  // Calculate total steps for progress
+  const totalSteps = Math.floor((allMonths.length - trainLen) / testLen) + 1;
+
+  const steps = [];
+  let cursor = 0;
+
+  function processStep() {
+    if (cursor + trainLen >= allMonths.length) {
+      // Done
       btn.disabled = false;
+      progressBar.style.width = '100%';
+      progressLabel.textContent = '100%';
+
+      if (!steps.length) {
+        status.textContent = 'No valid walk-forward steps could be completed.';
+        progressWrap.style.display = 'none';
+        return;
+      }
+
+      status.textContent = `Completed ${steps.length} walk-forward steps.`;
+      setTimeout(() => { progressWrap.style.display = 'none'; }, 600);
+      renderWalkForwardResults(steps, allMonths, objLabels[objective] || 'Sharpe');
       return;
     }
 
-    const steps = [];
-    let cursor = 0;
+    const stepNum = steps.length + 1;
+    const pct = Math.round((stepNum / totalSteps) * 100);
+    progressBar.style.width = pct + '%';
+    progressLabel.textContent = `Step ${stepNum} / ~${totalSteps}`;
+    status.textContent = `Step ${stepNum}: optimizing...`;
 
-    while (cursor + trainLen < allMonths.length) {
-      const trainMonths = allMonths.slice(cursor, cursor + trainLen);
-      const testStart = cursor + trainLen;
-      const testEnd = Math.min(testStart + testLen, allMonths.length);
-      const testMonths = allMonths.slice(testStart, testEnd);
+    const trainMonths = allMonths.slice(cursor, cursor + trainLen);
+    const testStart = cursor + trainLen;
+    const testEnd = Math.min(testStart + testLen, allMonths.length);
+    const testMonths = allMonths.slice(testStart, testEnd);
 
-      if (testMonths.length === 0) break;
+    if (testMonths.length === 0) { cursor = allMonths.length; processStep(); return; }
 
-      // Find best portfolio on train window
-      let bestCombo = null, bestSizes = null, bestScore = -Infinity, bestTrainMetrics = null;
+    // Find best portfolio on train window
+    let bestCombo = null, bestSizes = null, bestScore = -Infinity, bestTrainMetrics = null;
 
-      for (const combo of generateCombinations(strategies, 2, maxStrats)) {
-        if (maxSize === 1) {
-          const sizes = combo.map(() => 1);
+    for (const combo of generateCombinations(strategies, 2, maxStrats)) {
+      if (maxSize === 1) {
+        const sizes = combo.map(() => 1);
+        const wm = evaluateMonthlyPL(monthlyPLs, combo, sizes, trainMonths);
+        if (wm) {
+          const score = getScore(wm);
+          if (score > bestScore) {
+            bestScore = score; bestCombo = [...combo]; bestSizes = [...sizes]; bestTrainMetrics = wm;
+          }
+        }
+      } else {
+        const k = combo.length;
+        const totalPerms = Math.pow(maxSize, k);
+        for (let p = 0; p < totalPerms; p++) {
+          const sizes = [];
+          let rem = p;
+          for (let j = 0; j < k; j++) { sizes.push((rem % maxSize) + 1); rem = Math.floor(rem / maxSize); }
           const wm = evaluateMonthlyPL(monthlyPLs, combo, sizes, trainMonths);
           if (wm) {
             const score = getScore(wm);
@@ -3989,55 +4042,33 @@ function runWalkForward() {
               bestScore = score; bestCombo = [...combo]; bestSizes = [...sizes]; bestTrainMetrics = wm;
             }
           }
-        } else {
-          const k = combo.length;
-          const totalPerms = Math.pow(maxSize, k);
-          for (let p = 0; p < totalPerms; p++) {
-            const sizes = [];
-            let rem = p;
-            for (let j = 0; j < k; j++) { sizes.push((rem % maxSize) + 1); rem = Math.floor(rem / maxSize); }
-            const wm = evaluateMonthlyPL(monthlyPLs, combo, sizes, trainMonths);
-            if (wm) {
-              const score = getScore(wm);
-              if (score > bestScore) {
-                bestScore = score; bestCombo = [...combo]; bestSizes = [...sizes]; bestTrainMetrics = wm;
-              }
-            }
-          }
         }
       }
-
-      if (bestCombo) {
-        const testMetrics = evaluateMonthlyPL(monthlyPLs, bestCombo, bestSizes, testMonths);
-        // Collect monthly P&L for equity curve
-        const testPLs = testMonths.map(m => {
-          let sum = 0;
-          bestCombo.forEach((s, i) => { sum += (monthlyPLs[s][m] || 0) * bestSizes[i]; });
-          return sum;
-        });
-
-        steps.push({
-          trainRange: `${trainMonths[0]} → ${trainMonths[trainMonths.length-1]}`,
-          testRange: `${testMonths[0]} → ${testMonths[testMonths.length-1]}`,
-          combo: bestCombo, sizes: bestSizes,
-          trainScore: bestScore, trainMetrics: bestTrainMetrics,
-          testMetrics, testMonths, testPLs
-        });
-      }
-
-      cursor = testEnd; // advance past test window
     }
 
-    btn.disabled = false;
+    if (bestCombo) {
+      const testMetrics = evaluateMonthlyPL(monthlyPLs, bestCombo, bestSizes, testMonths);
+      const testPLs = testMonths.map(m => {
+        let sum = 0;
+        bestCombo.forEach((s, i) => { sum += (monthlyPLs[s][m] || 0) * bestSizes[i]; });
+        return sum;
+      });
 
-    if (!steps.length) {
-      status.textContent = 'No valid walk-forward steps could be completed.';
-      return;
+      steps.push({
+        trainRange: `${trainMonths[0]} → ${trainMonths[trainMonths.length-1]}`,
+        testRange: `${testMonths[0]} → ${testMonths[testMonths.length-1]}`,
+        combo: bestCombo, sizes: bestSizes,
+        trainScore: bestScore, trainMetrics: bestTrainMetrics,
+        testMetrics, testMonths, testPLs
+      });
     }
 
-    status.textContent = `Completed ${steps.length} walk-forward steps.`;
-    renderWalkForwardResults(steps, allMonths, objLabels[objective] || 'Sharpe');
-  });
+    cursor = testEnd;
+    // Yield to browser for UI update, then process next step
+    setTimeout(processStep, 0);
+  }
+
+  requestAnimationFrame(processStep);
 }
 
 function renderWalkForwardResults(steps, allMonths, objLabel) {
