@@ -4213,35 +4213,48 @@ function renderWalkForwardResults(steps, oosLabels, oosPLs, cumEquity, tradeEqui
     else { cw = 0; cl = 0; }
   });
 
-  var fmt = function(v) { return '$' + v.toLocaleString(undefined, {maximumFractionDigits:0}); };
-  var clr = function(v) { return v >= 0 ? 'var(--up)' : 'var(--dn)'; };
+  var f$ = function(v) { return (v >= 0 ? '' : '-') + '$' + Math.abs(Math.round(v)).toLocaleString(); };
+  var cv = function(v) { return v >= 0 ? 'var(--up)' : 'var(--dn)'; };
+
+  function statRow(label, value, color) {
+    return '<tr><td style="color:var(--gold);padding:3px 12px 3px 0;white-space:nowrap">' + label + '</td>' +
+           '<td style="text-align:right;padding:3px 0;font-weight:600;' + (color ? 'color:' + color : '') + '">' + value + '</td></tr>';
+  }
 
   document.getElementById('wfSummary').innerHTML =
-    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 24px">' +
-    '<div><strong style="color:var(--gold)">Total P&L:</strong> <span style="color:' + clr(totalPL) + '">' + fmt(totalPL) + '</span></div>' +
-    '<div><strong style="color:var(--gold)">Trades:</strong> ' + nTrades + '</div>' +
-    '<div><strong style="color:var(--gold)">Win Rate:</strong> ' + winRate.toFixed(1) + '% (' + wins.length + 'W / ' + losses.length + 'L)</div>' +
-    '<div><strong style="color:var(--gold)">Profit Factor:</strong> ' + profitFactor.toFixed(2) + '</div>' +
-    '<div><strong style="color:var(--gold)">Avg Trade:</strong> <span style="color:' + clr(avgTrade) + '">' + fmt(avgTrade) + '</span></div>' +
-    '<div><strong style="color:var(--gold)">Avg Win / Avg Loss:</strong> ' + fmt(avgWin) + ' / ' + fmt(avgLoss) + '</div>' +
-    '<div><strong style="color:var(--gold)">Max Drawdown:</strong> <span style="color:var(--dn)">' + fmt(maxDD) + '</span></div>' +
-    '<div><strong style="color:var(--gold)">Sharpe (ann.):</strong> ' + sharpe.toFixed(2) + '</div>' +
-    '<div><strong style="color:var(--gold)">Sortino (ann.):</strong> ' + sortino.toFixed(2) + '</div>' +
-    '<div><strong style="color:var(--gold)">Calmar:</strong> ' + calmar.toFixed(2) + '</div>' +
-    '<div><strong style="color:var(--gold)">R² (equity):</strong> ' + r2.toFixed(3) + '</div>' +
-    '<div><strong style="color:var(--gold)">Max Consec. Win/Loss:</strong> ' + maxConsW + ' / ' + maxConsL + '</div>' +
-    '<div><strong style="color:var(--gold)">Avg Monthly P&L:</strong> <span style="color:' + clr(meanM) + '">' + fmt(meanM) + '</span></div>' +
-    '<div><strong style="color:var(--gold)">Walk-Forward Steps:</strong> ' + steps.length + '</div>' +
-    '</div>';
+    '<table style="width:100%;font-size:12px;border-collapse:collapse">' +
+    statRow('Total P&L', f$(totalPL), cv(totalPL)) +
+    statRow('Trades', nTrades + ' (' + wins.length + 'W / ' + losses.length + 'L)', '') +
+    statRow('Win Rate', winRate.toFixed(1) + '%', winRate >= 50 ? 'var(--up)' : 'var(--dn)') +
+    statRow('Profit Factor', profitFactor.toFixed(2), profitFactor >= 1 ? 'var(--up)' : 'var(--dn)') +
+    statRow('Avg Trade', f$(avgTrade), cv(avgTrade)) +
+    statRow('Avg Win', f$(avgWin), 'var(--up)') +
+    statRow('Avg Loss', f$(avgLoss), 'var(--dn)') +
+    statRow('Max Drawdown', f$(maxDD), 'var(--dn)') +
+    statRow('Sharpe (ann.)', sharpe.toFixed(2), sharpe >= 1 ? 'var(--up)' : 'var(--dn)') +
+    statRow('Sortino (ann.)', sortino.toFixed(2), sortino >= 1 ? 'var(--up)' : 'var(--dn)') +
+    statRow('Calmar', calmar.toFixed(2), calmar >= 1 ? 'var(--up)' : 'var(--dn)') +
+    statRow('R\u00B2 (equity)', r2.toFixed(3), r2 >= 0.9 ? 'var(--up)' : r2 >= 0.7 ? 'var(--gold)' : 'var(--dn)') +
+    statRow('Max Consec. Win', maxConsW, 'var(--up)') +
+    statRow('Max Consec. Loss', maxConsL, 'var(--dn)') +
+    statRow('Avg Monthly P&L', f$(meanM), cv(meanM)) +
+    statRow('WF Steps', steps.length, '') +
+    '</table>';
 
   // Monthly P&L table (year × month grid)
-  var monthlyMap = {}; // { "YYYY": { 0..11: pl } }
+  var monthlyMap = {};
   oosLabels.forEach(function(mk, i) {
     var parts = mk.split('-');
     var yr = parts[0], mo = parseInt(parts[1]) - 1;
     if (!monthlyMap[yr]) monthlyMap[yr] = {};
     monthlyMap[yr][mo] = (monthlyMap[yr][mo] || 0) + oosPLs[i];
   });
+
+  function fmtCell(v) {
+    var abs = Math.abs(Math.round(v));
+    return (v < 0 ? '-' : '') + '$' + abs.toLocaleString();
+  }
+
   var years = Object.keys(monthlyMap).sort();
   var mBody = document.getElementById('wfMonthlyBody');
   var mRows = '';
@@ -4249,22 +4262,19 @@ function renderWalkForwardResults(steps, oosLabels, oosPLs, cumEquity, tradeEqui
     var yr = years[yi];
     var yrData = monthlyMap[yr];
     var yrTotal = 0, yrCount = 0;
-    mRows += '<tr><td style="font-weight:600">' + yr + '</td>';
+    mRows += '<tr><td style="font-weight:600;padding:4px 8px">' + yr + '</td>';
     for (var mo = 0; mo < 12; mo++) {
       var v = yrData[mo];
       if (v !== undefined) {
         yrTotal += v; yrCount++;
-        var c = v >= 0 ? 'var(--up)' : 'var(--dn)';
-        mRows += '<td class="r" style="color:' + c + ';font-size:11px">$' + Math.round(v).toLocaleString() + '</td>';
+        mRows += '<td class="r" style="color:' + (v >= 0 ? 'var(--up)' : 'var(--dn)') + ';padding:4px 6px">' + fmtCell(v) + '</td>';
       } else {
-        mRows += '<td class="r" style="color:var(--muted);font-size:11px">—</td>';
+        mRows += '<td class="r" style="color:rgba(255,255,255,0.15);padding:4px 6px">—</td>';
       }
     }
-    var yc = yrTotal >= 0 ? 'var(--up)' : 'var(--dn)';
     var avgMo = yrCount > 0 ? yrTotal / yrCount : 0;
-    var ac = avgMo >= 0 ? 'var(--up)' : 'var(--dn)';
-    mRows += '<td class="r" style="color:' + yc + ';font-weight:600">$' + Math.round(yrTotal).toLocaleString() + '</td>';
-    mRows += '<td class="r" style="color:' + ac + '">$' + Math.round(avgMo).toLocaleString() + '</td>';
+    mRows += '<td class="r" style="color:' + (yrTotal >= 0 ? 'var(--up)' : 'var(--dn)') + ';font-weight:700;padding:4px 6px;border-left:1px solid var(--border)">' + fmtCell(yrTotal) + '</td>';
+    mRows += '<td class="r" style="color:' + (avgMo >= 0 ? 'var(--up)' : 'var(--dn)') + ';padding:4px 6px">' + fmtCell(avgMo) + '</td>';
     mRows += '</tr>';
   }
   mBody.innerHTML = mRows;
