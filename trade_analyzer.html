@@ -822,7 +822,7 @@ input[type=range].zslider::-webkit-slider-thumb {
       </div>
 
       <div class="sec">Walk-Forward Equity Curve (Out-of-Sample only)</div>
-      <div class="card"><div class="cw" style="position:relative"><canvas id="wfEqChart" height="300"></canvas></div></div>
+      <div class="card"><div class="cw"><canvas id="wfEqChart" height="300"></canvas></div></div>
 
       <div class="sec" style="margin-top:16px">Walk-Forward Summary</div>
       <div class="card"><div class="card-body" id="wfSummary" style="font-size:13px;line-height:2"></div></div>
@@ -4135,9 +4135,12 @@ function renderWalkForwardResults(steps, allMonths, objLabel) {
 
 function drawWalkForwardEquity(labels, cumEquity) {
   try {
-    const el = document.getElementById('wfEqChart');
-    if (!el) return;
     if (window._wfEqChartInstance) { window._wfEqChartInstance.destroy(); window._wfEqChartInstance = null; }
+
+    // Recreate canvas to ensure clean state
+    var wrapper = document.getElementById('wfEqChart').parentNode;
+    wrapper.innerHTML = '<canvas id="wfEqChart" height="300"></canvas>';
+    var el = document.getElementById('wfEqChart');
 
     window._wfEqChartInstance = new Chart(el.getContext('2d'), {
       type: 'line',
