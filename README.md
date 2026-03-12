@@ -151,18 +151,18 @@ Exported CSV from **[Option Omega](https://optonomega.com)** with the following 
 
 ---
 
-## Coming Soon — Dynamic Portfolio Optimizer
-
-The next version of Trade Analyzer Pro will include **dynamic portfolio optimization**: automatically selecting and weighting your Option Omega strategies based on VIX regime, rolling Sharpe, correlation, and market conditions.
-
-Instead of analyzing a fixed portfolio, you'll define a pool of strategies and let the system tell you which ones to run today — and in what proportion.
-
-👉 **[Join the waitlist](https://docs.google.com/forms/d/e/1FAIpQLSf-FkBSWFW1DuAekiaYs5b4AqVt9iBJBdW4V3c4rwdSP3IjFA/viewform?usp=header)** to be notified first and help shape the direction of the tool.
+### 🔬 Rolling Window Portfolio Optimizer
+- **Custom date range**: select any Start Date / End Date to define the optimization window
+- Brute-force evaluation of all strategy combinations and size allocations
+- Ranked by Sharpe ratio with full metrics: Calmar, Sortino, Profit Factor, Win Rate, Max DD
+- **Out-of-sample validation**: metrics computed on data outside the optimization window
+- Interactive equity curve showing both in-sample and out-of-sample performance
+- Configurable: max strategies per portfolio, max size multiplier, number of top results
 
 ---
 
 ## Roadmap
-- [ ] Dynamic portfolio optimizer with VIX regime switching
+- [x] Rolling window portfolio optimizer with custom date range
 - [ ] Walk-forward validation of portfolio rules
 - [ ] AI-powered strategy selection based on current market conditions
 - [ ] Strategy automation tools *(in development — [join waitlist](https://docs.google.com/forms/d/e/1FAIpQLSf-FkBSWFW1DuAekiaYs5b4AqVt9iBJBdW4V3c4rwdSP3IjFA/viewform?usp=header))*
