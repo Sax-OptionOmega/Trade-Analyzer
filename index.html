@@ -743,6 +743,10 @@ input[type=range].zslider::-webkit-slider-thumb {
             </select>
           </div>
           <div class="opt-field">
+            <label>Min Trades</label>
+            <input type="number" class="opt-input" id="optMinTrades" min="0" max="999" value="20" style="width:70px" title="Minimum total trades in train window to consider a combination valid">
+          </div>
+          <div class="opt-field">
             <label>Top Results</label>
             <select class="opt-select" id="optTopN">
               <option value="3">Top 3</option>
@@ -3440,6 +3444,28 @@ function buildMonthlyPLByStrategy(trades, strategies) {
   return result;
 }
 
+function buildMonthlyTradeCountByStrategy(trades, strategies) {
+  // Returns { strategyName: { "YYYY-MM": tradeCount, ... }, ... }
+  const result = {};
+  strategies.forEach(s => { result[s] = {}; });
+  trades.forEach(t => {
+    const d = t.dateClose || t.dateOpen;
+    if (!d || !result[t.strategy]) return;
+    const key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+    result[t.strategy][key] = (result[t.strategy][key] || 0) + 1;
+  });
+  return result;
+}
+
+function countTradesInWindow(tradeCounts, combo, months) {
+  // Count total trades for a combination of strategies in a set of months
+  var total = 0;
+  combo.forEach(function(s) {
+    months.forEach(function(m) { total += (tradeCounts[s][m] || 0); });
+  });
+  return total;
+}
+
 function getAllMonthKeys(trades) {
   const set = new Set();
   trades.forEach(t => {
@@ -3537,6 +3563,7 @@ function runOptimizer() {
   const maxStrats = Math.min(parseInt(document.getElementById('optMaxStrats').value) || 6, strategies.length);
   const maxSize = parseInt(document.getElementById('optMaxSize').value) || 1;
   const topN = parseInt(document.getElementById('optTopN').value) || 5;
+  const minTrades = parseInt(document.getElementById('optMinTrades').value) || 0;
 
   if (!optStart || !optEnd) { status.textContent = 'Please select End Date.'; return; }
   if (optStart > optEnd) { status.textContent = 'Start Date must be before End Date.'; return; }
@@ -3552,6 +3579,7 @@ function runOptimizer() {
   // Use requestAnimationFrame to keep UI responsive
   requestAnimationFrame(() => {
     const monthlyPLs = buildMonthlyPLByStrategy(trades, strategies);
+    const tradeCounts = buildMonthlyTradeCountByStrategy(trades, strategies);
     const allMonths = getAllMonthKeys(trades);
 
     if (allMonths.length < 3) {
@@ -3606,7 +3634,14 @@ function runOptimizer() {
       minScoreInHeap = topResults[topResults.length - 1]._score;
     }
 
+    let skippedLowTrades = 0;
     for (const combo of generateCombinations(strategies, 2, maxStrats)) {
+      // Skip combinations with too few trades in the optimization window
+      if (minTrades > 0 && countTradesInWindow(tradeCounts, combo, windowMonthKeys) < minTrades) {
+        skippedLowTrades++;
+        evaluated++;
+        continue;
+      }
       if (maxSize === 1) {
         const sizes = combo.map(() => 1);
         const wm = evaluateMonthlyPL(monthlyPLs, combo, sizes, windowMonthKeys);
@@ -3641,7 +3676,9 @@ function runOptimizer() {
     }
     topResults.length = 0; // free memory
 
-    status.textContent = `Evaluated ${evaluated.toLocaleString()} combinations. Showing top ${finalResults.length}.`;
+    status.textContent = `Evaluated ${evaluated.toLocaleString()} combinations` +
+      (skippedLowTrades > 0 ? ` (${skippedLowTrades} skipped: <${minTrades} trades)` : '') +
+      `. Showing top ${finalResults.length}.`;
     btn.disabled = false;
 
     if (!finalResults.length) {
@@ -3935,6 +3972,7 @@ function runWalkForward() {
   const testLen = parseInt(document.getElementById('wfTest').value) || 3;
   const maxStrats = Math.min(parseInt(document.getElementById('optMaxStrats').value) || 6, strategies.length);
   const maxSize = parseInt(document.getElementById('optMaxSize').value) || 1;
+  const minTrades = parseInt(document.getElementById('optMinTrades').value) || 0;
   const objective = document.getElementById('optObjective').value;
   const objLabels = { sharpe:'Sharpe', equity:'Equity', winRate:'Win %', maxDD:'Min Max DD', pf:'Risk/Reward (PF)', r2:'R²' };
 
@@ -3963,6 +4001,7 @@ function runWalkForward() {
   }
 
   const monthlyPLs = buildMonthlyPLByStrategy(trades, strategies);
+  const tradeCounts = buildMonthlyTradeCountByStrategy(trades, strategies);
   const allMonths = getAllMonthKeys(trades);
 
   if (allMonths.length < trainLen + testLen) {
@@ -4033,6 +4072,8 @@ function runWalkForward() {
     let bestCombo = null, bestSizes = null, bestScore = -Infinity, bestTrainMetrics = null;
 
     for (const combo of generateCombinations(strategies, 2, maxStrats)) {
+      // Skip combinations with too few trades in the train window
+      if (minTrades > 0 && countTradesInWindow(tradeCounts, combo, trainMonths) < minTrades) continue;
       if (maxSize === 1) {
         const sizes = combo.map(() => 1);
         const wm = evaluateMonthlyPL(monthlyPLs, combo, sizes, trainMonths);
