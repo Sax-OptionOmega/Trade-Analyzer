@@ -712,6 +712,10 @@ input[type=range].zslider::-webkit-slider-thumb {
           </div>
           <input type="hidden" id="optStartDate">
           <div class="opt-field">
+            <label>Min Strategies</label>
+            <input type="number" class="opt-input" id="optMinStrats" min="2" max="15" value="2" style="width:70px">
+          </div>
+          <div class="opt-field">
             <label>Max Strategies</label>
             <input type="number" class="opt-input" id="optMaxStrats" min="2" max="15" value="6" style="width:70px">
           </div>
@@ -3558,14 +3562,15 @@ function runOptimizer() {
   applyQuickRange(); // ensure start date is computed from end date + months back
   const optStart = document.getElementById('optStartDate').value;
   const optEnd = document.getElementById('optEndDate').value;
-  const maxStrats = Math.min(parseInt(document.getElementById('optMaxStrats').value) || 6, strategies.length);
+  const minStrats = Math.max(2, parseInt(document.getElementById('optMinStrats').value) || 2);
+  const maxStrats = Math.min(Math.max(minStrats, parseInt(document.getElementById('optMaxStrats').value) || 6), strategies.length);
   const maxSize = parseInt(document.getElementById('optMaxSize').value) || 1;
   const topN = parseInt(document.getElementById('optTopN').value) || 5;
   const minTrades = parseInt(document.getElementById('optMinTrades').value) || 0;
 
   if (!optStart || !optEnd) { status.textContent = 'Please select End Date.'; return; }
   if (optStart > optEnd) { status.textContent = 'Start Date must be before End Date.'; return; }
-  if (strategies.length < 2) { status.textContent = 'Need at least 2 strategies.'; return; }
+  if (strategies.length < minStrats) { status.textContent = `Need at least ${minStrats} strategies.`; return; }
 
   const startKey = optStart.slice(0, 7); // "YYYY-MM"
   const endKey = optEnd.slice(0, 7);
@@ -3634,7 +3639,7 @@ function runOptimizer() {
     }
 
     let skippedLowTrades = 0;
-    for (const combo of generateCombinations(strategies, 2, maxStrats)) {
+    for (const combo of generateCombinations(strategies, minStrats, maxStrats)) {
       // Skip combinations with too few trades in the optimization window
       if (minTrades > 0 && countTradesInWindow(tradeCounts, combo, windowMonthKeys) < minTrades) {
         skippedLowTrades++;
@@ -3969,13 +3974,14 @@ function runWalkForward() {
 
   const trainLen = parseInt(document.getElementById('wfTrain').value) || 6;
   const testLen = parseInt(document.getElementById('wfTest').value) || 3;
-  const maxStrats = Math.min(parseInt(document.getElementById('optMaxStrats').value) || 6, strategies.length);
+  const minStrats = Math.max(2, parseInt(document.getElementById('optMinStrats').value) || 2);
+  const maxStrats = Math.min(Math.max(minStrats, parseInt(document.getElementById('optMaxStrats').value) || 6), strategies.length);
   const maxSize = parseInt(document.getElementById('optMaxSize').value) || 1;
   const minTrades = parseInt(document.getElementById('optMinTrades').value) || 0;
   const objective = document.getElementById('optObjective').value;
   const objLabels = { sharpe:'Sharpe', equity:'Equity', winRate:'Win %', maxDD:'Min Max DD', pf:'Risk/Reward (PF)', r2:'R²', expectancy:'Expectancy' };
 
-  if (strategies.length < 2) { status.textContent = 'Need at least 2 strategies.'; return; }
+  if (strategies.length < minStrats) { status.textContent = `Need at least ${minStrats} strategies.`; return; }
   if (trainLen < 2) { status.textContent = 'Train must be at least 2 months.'; return; }
 
   btn.disabled = true;
@@ -4070,7 +4076,7 @@ function runWalkForward() {
     // Find best portfolio on train window
     let bestCombo = null, bestSizes = null, bestScore = -Infinity, bestTrainMetrics = null;
 
-    for (const combo of generateCombinations(strategies, 2, maxStrats)) {
+    for (const combo of generateCombinations(strategies, minStrats, maxStrats)) {
       // Skip combinations with too few trades in the train window
       if (minTrades > 0 && countTradesInWindow(tradeCounts, combo, trainMonths) < minTrades) continue;
       if (maxSize === 1) {
