@@ -4134,26 +4134,90 @@ function renderWalkForwardResults(steps, oosLabels, oosPLs, cumEquity, tradeEqui
   }
   tbody.innerHTML = rows;
 
-  // Summary stats (data already computed)
-  var totalPL = cumEquity.length ? cumEquity[cumEquity.length - 1] : 0;
-  var nMonths = oosPLs.length;
-  var mean = nMonths > 0 ? totalPL / nMonths : 0;
-  var std = Math.sqrt(oosPLs.reduce(function(a,v) { return a + (v - mean) * (v - mean); }, 0) / nMonths);
-  var sharpe = std > 0 ? (mean / std) * Math.sqrt(12) : 0;
+  // ── Trade-level statistics ──
+  var nTrades = tradeEquity.length;
+  var tradePLs = [];
+  for (var ti = 0; ti < nTrades; ti++) {
+    tradePLs.push(ti === 0 ? tradeEquity[0] : tradeEquity[ti] - tradeEquity[ti - 1]);
+  }
+
+  var totalPL = nTrades > 0 ? tradeEquity[nTrades - 1] : 0;
+  var wins = tradePLs.filter(function(v) { return v > 0; });
+  var losses = tradePLs.filter(function(v) { return v < 0; });
+  var winRate = nTrades > 0 ? (wins.length / nTrades * 100) : 0;
+
+  var avgWin = wins.length > 0 ? wins.reduce(function(a,b){return a+b;},0) / wins.length : 0;
+  var avgLoss = losses.length > 0 ? losses.reduce(function(a,b){return a+b;},0) / losses.length : 0;
+  var avgTrade = nTrades > 0 ? totalPL / nTrades : 0;
+  var grossWin = wins.reduce(function(a,b){return a+b;},0);
+  var grossLoss = Math.abs(losses.reduce(function(a,b){return a+b;},0));
+  var profitFactor = grossLoss > 0 ? grossWin / grossLoss : (grossWin > 0 ? 999 : 0);
+
+  // Max DD from trade equity
   var peak = 0, maxDD = 0;
-  cumEquity.forEach(function(v) { peak = Math.max(peak, v); maxDD = Math.min(maxDD, v - peak); });
-  var winMonths = oosPLs.filter(function(v) { return v > 0; }).length;
-  var winRate = nMonths > 0 ? (winMonths / nMonths * 100) : 0;
+  tradeEquity.forEach(function(v) { peak = Math.max(peak, v); maxDD = Math.min(maxDD, v - peak); });
+
+  // Sharpe (monthly)
+  var nMonths = oosPLs.length;
+  var meanM = nMonths > 0 ? totalPL / nMonths : 0;
+  var stdM = nMonths > 0 ? Math.sqrt(oosPLs.reduce(function(a,v) { return a + (v - meanM) * (v - meanM); }, 0) / nMonths) : 0;
+  var sharpe = stdM > 0 ? (meanM / stdM) * Math.sqrt(12) : 0;
+
+  // Sortino (monthly)
+  var downDev = nMonths > 0 ? Math.sqrt(oosPLs.filter(function(v){return v<0;}).reduce(function(a,v){return a+v*v;},0) / nMonths) : 0;
+  var sortino = downDev > 0 ? (meanM / downDev) * Math.sqrt(12) : 0;
+
+  // Calmar
+  var annReturn = meanM * 12;
+  var calmar = maxDD < 0 ? annReturn / Math.abs(maxDD) : (annReturn > 0 ? 999 : 0);
+
+  // R² of trade equity
+  var r2 = 0;
+  if (nTrades >= 2) {
+    var xMean = (nTrades - 1) / 2;
+    var yMean = tradeEquity.reduce(function(a,b){return a+b;},0) / nTrades;
+    var ssXY = 0, ssXX = 0, ssTot = 0;
+    tradeEquity.forEach(function(y, i) {
+      ssXY += (i - xMean) * (y - yMean);
+      ssXX += (i - xMean) * (i - xMean);
+      ssTot += (y - yMean) * (y - yMean);
+    });
+    if (ssTot > 0 && ssXX > 0) {
+      var slope = ssXY / ssXX;
+      var intercept = yMean - slope * xMean;
+      var ssRes = tradeEquity.reduce(function(a, y, i) { return a + Math.pow(y - (slope * i + intercept), 2); }, 0);
+      r2 = 1 - ssRes / ssTot;
+    }
+  }
+
+  // Max consecutive wins/losses
+  var maxConsW = 0, maxConsL = 0, cw = 0, cl = 0;
+  tradePLs.forEach(function(v) {
+    if (v > 0) { cw++; cl = 0; maxConsW = Math.max(maxConsW, cw); }
+    else if (v < 0) { cl++; cw = 0; maxConsL = Math.max(maxConsL, cl); }
+    else { cw = 0; cl = 0; }
+  });
+
+  var fmt = function(v) { return '$' + v.toLocaleString(undefined, {maximumFractionDigits:0}); };
+  var clr = function(v) { return v >= 0 ? 'var(--up)' : 'var(--dn)'; };
 
   document.getElementById('wfSummary').innerHTML =
-    '<div><strong style="color:var(--gold)">Total OOS P&L:</strong> <span style="color:' + (totalPL>=0?'var(--up)':'var(--dn)') + '">$' + totalPL.toFixed(0) + '</span></div>' +
-    '<div><strong style="color:var(--gold)">OOS Months:</strong> ' + nMonths + '</div>' +
-    '<div><strong style="color:var(--gold)">Sharpe (OOS):</strong> ' + sharpe.toFixed(2) + '</div>' +
-    '<div><strong style="color:var(--gold)">Max DD (OOS):</strong> <span style="color:var(--dn)">$' + maxDD.toFixed(0) + '</span></div>' +
-    '<div><strong style="color:var(--gold)">Win Rate (OOS):</strong> ' + winRate.toFixed(0) + '%</div>' +
-    '<div><strong style="color:var(--gold)">Avg Monthly P&L:</strong> <span style="color:' + (mean>=0?'var(--up)':'var(--dn)') + '">$' + mean.toFixed(0) + '</span></div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 24px">' +
+    '<div><strong style="color:var(--gold)">Total P&L:</strong> <span style="color:' + clr(totalPL) + '">' + fmt(totalPL) + '</span></div>' +
+    '<div><strong style="color:var(--gold)">Trades:</strong> ' + nTrades + '</div>' +
+    '<div><strong style="color:var(--gold)">Win Rate:</strong> ' + winRate.toFixed(1) + '% (' + wins.length + 'W / ' + losses.length + 'L)</div>' +
+    '<div><strong style="color:var(--gold)">Profit Factor:</strong> ' + profitFactor.toFixed(2) + '</div>' +
+    '<div><strong style="color:var(--gold)">Avg Trade:</strong> <span style="color:' + clr(avgTrade) + '">' + fmt(avgTrade) + '</span></div>' +
+    '<div><strong style="color:var(--gold)">Avg Win / Avg Loss:</strong> ' + fmt(avgWin) + ' / ' + fmt(avgLoss) + '</div>' +
+    '<div><strong style="color:var(--gold)">Max Drawdown:</strong> <span style="color:var(--dn)">' + fmt(maxDD) + '</span></div>' +
+    '<div><strong style="color:var(--gold)">Sharpe (ann.):</strong> ' + sharpe.toFixed(2) + '</div>' +
+    '<div><strong style="color:var(--gold)">Sortino (ann.):</strong> ' + sortino.toFixed(2) + '</div>' +
+    '<div><strong style="color:var(--gold)">Calmar:</strong> ' + calmar.toFixed(2) + '</div>' +
+    '<div><strong style="color:var(--gold)">R² (equity):</strong> ' + r2.toFixed(3) + '</div>' +
+    '<div><strong style="color:var(--gold)">Max Consec. Win/Loss:</strong> ' + maxConsW + ' / ' + maxConsL + '</div>' +
+    '<div><strong style="color:var(--gold)">Avg Monthly P&L:</strong> <span style="color:' + clr(meanM) + '">' + fmt(meanM) + '</span></div>' +
     '<div><strong style="color:var(--gold)">Walk-Forward Steps:</strong> ' + steps.length + '</div>' +
-    '<div><strong style="color:var(--gold)">Total Trades (OOS):</strong> ' + tradeEquity.length + '</div>';
+    '</div>';
 
   // Draw trade-level equity chart — container is already visible
   drawWalkForwardEquity(tradeDates, tradeEquity);
