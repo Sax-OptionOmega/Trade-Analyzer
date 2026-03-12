@@ -724,6 +724,7 @@ input[type=range].zslider::-webkit-slider-thumb {
               <option value="maxDD">Min Max DD</option>
               <option value="pf" selected>Risk/Reward (PF)</option>
               <option value="r2">R² (Equity Linearity)</option>
+              <option value="expectancy">Expectancy (Win% × Win/Loss)</option>
             </select>
           </div>
           <div class="opt-field">
@@ -3516,6 +3517,11 @@ function evaluateMonthlyPL(monthlyPLs, combo, sizes, months) {
   const downDev = Math.sqrt(pls.filter(v=>v<0).reduce((a,v) => a + v*v, 0) / pls.length);
   const sortino = downDev > 0 ? (mean / downDev) * Math.sqrt(12) : 0;
 
+  // Expectancy: WinRate × (AvgWin / |AvgLoss|)
+  const avgWin = wins.length > 0 ? grossW / wins.length : 0;
+  const avgLoss = losses.length > 0 ? grossL / losses.length : 0;
+  const expectancy = avgLoss > 0 ? (winRate / 100) * (avgWin / avgLoss) : (avgWin > 0 ? 999 : 0);
+
   // R² of equity curve (linearity)
   let r2 = 0;
   if (pls.length >= 2) {
@@ -3538,7 +3544,7 @@ function evaluateMonthlyPL(monthlyPLs, combo, sizes, months) {
     }
   }
 
-  return { totalPL, mean, sharpe, maxDD, calmar, winRate, pf, sortino, r2 };
+  return { totalPL, mean, sharpe, maxDD, calmar, winRate, pf, sortino, r2, expectancy };
 }
 
 function runOptimizer() {
@@ -3593,7 +3599,7 @@ function runOptimizer() {
 
     // Objective function
     const objective = document.getElementById('optObjective').value;
-    const objLabels = { sharpe:'Sharpe', equity:'Equity', winRate:'Win %', maxDD:'Min Max DD', pf:'Risk/Reward (PF)', r2:'R²' };
+    const objLabels = { sharpe:'Sharpe', equity:'Equity', winRate:'Win %', maxDD:'Min Max DD', pf:'Risk/Reward (PF)', r2:'R²', expectancy:'Expectancy' };
 
     function getScore(metrics) {
       switch(objective) {
@@ -3602,6 +3608,7 @@ function runOptimizer() {
         case 'maxDD':   return metrics.maxDD; // least negative = best, so higher is better
         case 'pf':      return metrics.pf;
         case 'r2':      return metrics.r2;
+        case 'expectancy': return metrics.expectancy;
         default:        return metrics.sharpe;
       }
     }
@@ -3693,7 +3700,7 @@ function renderOptimizerResults(results, allMonths, monthlyPLs, windowStart) {
   const resultsWrap = document.getElementById('optResultsWrap');
   resultsWrap.style.display = 'block';
 
-  const objLabels = { sharpe:'Sharpe', equity:'Equity', winRate:'Win %', maxDD:'Min Max DD', pf:'Risk/Reward (PF)', r2:'R²' };
+  const objLabels = { sharpe:'Sharpe', equity:'Equity', winRate:'Win %', maxDD:'Min Max DD', pf:'Risk/Reward (PF)', r2:'R²', expectancy:'Expectancy' };
   const obj = document.getElementById('optObjective').value;
   document.getElementById('optCriteriaLabel').textContent =
     `— ranked by ${objLabels[obj] || 'Sharpe'} on ${allMonths.slice(windowStart).length}-month window`;
@@ -3966,7 +3973,7 @@ function runWalkForward() {
   const maxSize = parseInt(document.getElementById('optMaxSize').value) || 1;
   const minTrades = parseInt(document.getElementById('optMinTrades').value) || 0;
   const objective = document.getElementById('optObjective').value;
-  const objLabels = { sharpe:'Sharpe', equity:'Equity', winRate:'Win %', maxDD:'Min Max DD', pf:'Risk/Reward (PF)', r2:'R²' };
+  const objLabels = { sharpe:'Sharpe', equity:'Equity', winRate:'Win %', maxDD:'Min Max DD', pf:'Risk/Reward (PF)', r2:'R²', expectancy:'Expectancy' };
 
   if (strategies.length < 2) { status.textContent = 'Need at least 2 strategies.'; return; }
   if (trainLen < 2) { status.textContent = 'Train must be at least 2 months.'; return; }
