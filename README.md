@@ -44,6 +44,24 @@ Built by a retail trader, for retail traders.
 - Day-of-week margin and strategy count averages
 - **0DTE handling**: margin for same-day trades is automatically set to Max Loss (no leverage)
 
+### 🔬 Rolling Window Portfolio Optimizer
+- **End Date + Months Back**: select an end date and a look-back period to define the optimization window
+- **6 fitness functions**: Sharpe, Equity (Total P&L), Win %, Min Max DD, Risk/Reward (Profit Factor), R² (equity linearity)
+- Brute-force evaluation of all strategy combinations and size allocations
+- Ranked results with full metrics: Calmar, Sortino, Profit Factor, Win Rate, Max DD
+- **Out-of-sample validation**: metrics computed on data outside the optimization window
+- Interactive equity curve showing both in-sample and out-of-sample performance
+- Configurable: max strategies per portfolio, max size multiplier, number of top results
+
+### 🔄 Walk-Forward Backtest
+- **Sliding window optimization**: trains on N months, trades the best portfolio for M months, then slides forward and repeats until end of data
+- Uses the same fitness function selected for the optimizer
+- **Trade-level equity curve** with drawdown visualization — shows every individual trade, not monthly sums
+- Per-step detail table with train/test windows, selected portfolio, train score, test P&L, and cumulative P&L
+- **Comprehensive OOS statistics**: Sharpe, Sortino, Calmar, R², Profit Factor, Win Rate, Max DD, Avg Trade, Avg Win/Loss, Max Consecutive Win/Loss
+- **Monthly P&L heatmap**: year × month grid with green/red coloring, annual totals, and monthly averages
+- Progress bar with real-time step-by-step status updates
+
 ### 🤖 AI-Powered Insights (Multi-Provider)
 - **4 AI providers supported**: Claude (Anthropic), GPT-4o (OpenAI), Gemini (Google), Groq
 - Automatic **model fallback**: if a model is unavailable, the app tries up to 3 alternatives per provider
