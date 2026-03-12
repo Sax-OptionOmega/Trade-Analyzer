@@ -824,8 +824,23 @@ input[type=range].zslider::-webkit-slider-thumb {
       <div class="sec">Walk-Forward Equity Curve (Out-of-Sample only)</div>
       <div class="card"><div class="cw"><canvas id="wfEqChart" height="300"></canvas></div></div>
 
-      <div class="sec" style="margin-top:16px">Walk-Forward Summary</div>
-      <div class="card"><div class="card-body" id="wfSummary" style="font-size:13px;line-height:2"></div></div>
+      <div class="g2" style="margin-top:16px">
+        <div>
+          <div class="sec">Walk-Forward Summary</div>
+          <div class="card"><div class="card-body" id="wfSummary" style="font-size:13px;line-height:2"></div></div>
+        </div>
+        <div>
+          <div class="sec">Monthly P&L (OOS)</div>
+          <div class="card">
+            <div class="scroll-tbl" style="max-height:400px;overflow-y:auto">
+              <table class="tbl" id="wfMonthlyTbl">
+                <thead><tr><th>Year</th><th class="r">Jan</th><th class="r">Feb</th><th class="r">Mar</th><th class="r">Apr</th><th class="r">May</th><th class="r">Jun</th><th class="r">Jul</th><th class="r">Aug</th><th class="r">Sep</th><th class="r">Oct</th><th class="r">Nov</th><th class="r">Dec</th><th class="r" style="color:var(--gold)">Year</th><th class="r" style="color:var(--gold)">Avg/Mo</th></tr></thead>
+                <tbody id="wfMonthlyBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div id="optResultsWrap" style="display:none">
@@ -4218,6 +4233,41 @@ function renderWalkForwardResults(steps, oosLabels, oosPLs, cumEquity, tradeEqui
     '<div><strong style="color:var(--gold)">Avg Monthly P&L:</strong> <span style="color:' + clr(meanM) + '">' + fmt(meanM) + '</span></div>' +
     '<div><strong style="color:var(--gold)">Walk-Forward Steps:</strong> ' + steps.length + '</div>' +
     '</div>';
+
+  // Monthly P&L table (year × month grid)
+  var monthlyMap = {}; // { "YYYY": { 0..11: pl } }
+  oosLabels.forEach(function(mk, i) {
+    var parts = mk.split('-');
+    var yr = parts[0], mo = parseInt(parts[1]) - 1;
+    if (!monthlyMap[yr]) monthlyMap[yr] = {};
+    monthlyMap[yr][mo] = (monthlyMap[yr][mo] || 0) + oosPLs[i];
+  });
+  var years = Object.keys(monthlyMap).sort();
+  var mBody = document.getElementById('wfMonthlyBody');
+  var mRows = '';
+  for (var yi = 0; yi < years.length; yi++) {
+    var yr = years[yi];
+    var yrData = monthlyMap[yr];
+    var yrTotal = 0, yrCount = 0;
+    mRows += '<tr><td style="font-weight:600">' + yr + '</td>';
+    for (var mo = 0; mo < 12; mo++) {
+      var v = yrData[mo];
+      if (v !== undefined) {
+        yrTotal += v; yrCount++;
+        var c = v >= 0 ? 'var(--up)' : 'var(--dn)';
+        mRows += '<td class="r" style="color:' + c + ';font-size:11px">$' + Math.round(v).toLocaleString() + '</td>';
+      } else {
+        mRows += '<td class="r" style="color:var(--muted);font-size:11px">—</td>';
+      }
+    }
+    var yc = yrTotal >= 0 ? 'var(--up)' : 'var(--dn)';
+    var avgMo = yrCount > 0 ? yrTotal / yrCount : 0;
+    var ac = avgMo >= 0 ? 'var(--up)' : 'var(--dn)';
+    mRows += '<td class="r" style="color:' + yc + ';font-weight:600">$' + Math.round(yrTotal).toLocaleString() + '</td>';
+    mRows += '<td class="r" style="color:' + ac + '">$' + Math.round(avgMo).toLocaleString() + '</td>';
+    mRows += '</tr>';
+  }
+  mBody.innerHTML = mRows;
 
   // Draw trade-level equity chart — container is already visible
   drawWalkForwardEquity(tradeDates, tradeEquity);
