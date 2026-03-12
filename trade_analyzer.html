@@ -813,7 +813,7 @@ input[type=range].zslider::-webkit-slider-thumb {
               <thead><tr>
                 <th>Step</th><th>Train Window</th><th>Test Window</th>
                 <th>Best Portfolio</th><th class="r">Train Score</th>
-                <th class="r">Test P&L</th><th class="r">Test Sharpe</th><th class="r">Test Win%</th>
+                <th class="r">Test P&L</th><th class="r">Cum P&L</th>
               </tr></thead>
               <tbody id="wfStepsBody"></tbody>
             </table>
@@ -822,7 +822,7 @@ input[type=range].zslider::-webkit-slider-thumb {
       </div>
 
       <div class="sec">Walk-Forward Equity Curve (Out-of-Sample only)</div>
-      <div class="card"><div class="cw" style="position:relative;height:300px"><canvas id="wfEqChart"></canvas></div></div>
+      <div class="card"><div class="cw" style="position:relative"><canvas id="wfEqChart" height="300"></canvas></div></div>
 
       <div class="sec" style="margin-top:16px">Walk-Forward Summary</div>
       <div class="card"><div class="card-body" id="wfSummary" style="font-size:13px;line-height:2"></div></div>
@@ -4073,20 +4073,22 @@ function renderWalkForwardResults(steps, allMonths, objLabel) {
   document.getElementById('wfCriteriaLabel').textContent =
     `— ${steps.length} steps, optimized by ${objLabel}`;
 
-  // Steps table
+  // Steps table with cumulative P&L
+  let cumPL = 0;
   const tbody = document.getElementById('wfStepsBody');
   tbody.innerHTML = steps.map((s, i) => {
     const comboStr = s.combo.map((c, j) => c + (s.sizes[j] > 1 ? ' ×' + s.sizes[j] : '')).join(', ');
     const tm = s.testMetrics;
+    const testPL = tm ? tm.totalPL : 0;
+    cumPL += testPL;
     return `<tr>
       <td>${i+1}</td>
       <td style="font-size:11px">${s.trainRange}</td>
       <td style="font-size:11px">${s.testRange}</td>
       <td style="font-size:11px">${comboStr}</td>
       <td class="r">${s.trainScore.toFixed(2)}</td>
-      <td class="r" style="color:${tm && tm.totalPL>=0?'var(--up)':'var(--dn)'}">${tm ? '$'+tm.totalPL.toFixed(0) : '—'}</td>
-      <td class="r">${tm ? tm.sharpe.toFixed(2) : '—'}</td>
-      <td class="r">${tm ? tm.winRate.toFixed(0)+'%' : '—'}</td>
+      <td class="r" style="color:${testPL>=0?'var(--up)':'var(--dn)'}">$${testPL.toFixed(0)}</td>
+      <td class="r" style="color:${cumPL>=0?'var(--up)':'var(--dn)'}">$${cumPL.toFixed(0)}</td>
     </tr>`;
   }).join('');
 
@@ -4128,63 +4130,52 @@ function renderWalkForwardResults(steps, allMonths, objLabel) {
   `;
 
   // Draw equity chart — delay to let container become visible
-  setTimeout(() => drawWalkForwardEquity(oosLabels, cumEquity, steps), 50);
+  setTimeout(function() { drawWalkForwardEquity(oosLabels, cumEquity); }, 100);
 }
 
-function drawWalkForwardEquity(labels, cumEquity, steps) {
-  const canvas = document.getElementById('wfEqChart');
-  const ctx = canvas.getContext('2d');
-  if (window._wfEqChartInstance) window._wfEqChartInstance.destroy();
+function drawWalkForwardEquity(labels, cumEquity) {
+  try {
+    const el = document.getElementById('wfEqChart');
+    if (!el) return;
+    if (window._wfEqChartInstance) { window._wfEqChartInstance.destroy(); window._wfEqChartInstance = null; }
 
-  // Build step boundary annotations (alternating background)
-  const stepBGs = [];
-  let idx = 0;
-  steps.forEach((s, si) => {
-    const start = idx;
-    idx += s.testMonths.length;
-    if (si % 2 === 1) {
-      stepBGs.push({ start, end: idx - 1 });
-    }
-  });
-
-  // Color array: green when equity rising, red when in drawdown
-  const colors = cumEquity.map((v, i) => {
-    if (i === 0) return v >= 0 ? 'rgba(0,212,170,0.8)' : 'rgba(255,82,82,0.8)';
-    return v >= cumEquity[i-1] ? 'rgba(0,212,170,0.8)' : 'rgba(255,82,82,0.8)';
-  });
-
-  window._wfEqChartInstance = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels,
-      datasets: [{
-        label: 'Walk-Forward Equity (OOS)',
-        data: cumEquity,
-        borderColor: 'rgba(0,212,170,1)',
-        backgroundColor: 'rgba(0,212,170,0.1)',
-        fill: true,
-        borderWidth: 2,
-        pointRadius: 0,
-        tension: 0.3
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { display: true, labels: { color: '#ccc', font: { size: 11 } } },
-        tooltip: {
-          callbacks: {
-            label: ctx => `$${ctx.parsed.y.toFixed(0)}`
-          }
-        }
+    window._wfEqChartInstance = new Chart(el.getContext('2d'), {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Walk-Forward Equity (OOS)',
+          data: cumEquity,
+          borderColor: '#00d4aa',
+          backgroundColor: 'rgba(0,212,170,0.1)',
+          fill: true,
+          borderWidth: 2,
+          pointRadius: cumEquity.length < 50 ? 3 : 0,
+          pointBackgroundColor: '#00d4aa',
+          tension: 0.3
+        }]
       },
-      scales: {
-        x: { ticks: { color: '#999', font: { size: 10 }, maxRotation: 45 }, grid: { color: 'rgba(255,255,255,0.05)' } },
-        y: { ticks: { color: '#999', callback: v => '$' + v.toLocaleString() }, grid: { color: 'rgba(255,255,255,0.08)' } }
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: { duration: 400 },
+        plugins: {
+          legend: { display: true, labels: { color: '#ccc', font: { size: 11 } } },
+          tooltip: {
+            callbacks: {
+              label: function(tooltipItem) { return '$' + tooltipItem.parsed.y.toFixed(0); }
+            }
+          }
+        },
+        scales: {
+          x: { ticks: { color: '#999', font: { size: 10 }, maxRotation: 45 }, grid: { color: 'rgba(255,255,255,0.05)' } },
+          y: { ticks: { color: '#999', callback: function(v) { return '$' + v.toLocaleString(); } }, grid: { color: 'rgba(255,255,255,0.08)' } }
+        }
       }
-    }
-  });
+    });
+  } catch(e) {
+    console.error('WF Chart error:', e);
+  }
 }
 
 // ── ZOOM ──────────────────────────────────────────────────────────────────────
