@@ -727,6 +727,17 @@ input[type=range].zslider::-webkit-slider-thumb {
             <input type="number" class="opt-input" id="optMaxStrats" min="2" max="15" value="6" style="width:70px">
           </div>
           <div class="opt-field">
+            <label>Optimize For</label>
+            <select class="opt-select" id="optObjective">
+              <option value="sharpe" selected>Sharpe</option>
+              <option value="equity">Equity (Total P&L)</option>
+              <option value="winRate">Win %</option>
+              <option value="maxDD">Min Max DD</option>
+              <option value="pf">Risk/Reward (PF)</option>
+              <option value="r2">R² (Equity Linearity)</option>
+            </select>
+          </div>
+          <div class="opt-field">
             <label>Max Size per Strategy</label>
             <select class="opt-select" id="optMaxSize">
               <option value="1">1 (no scaling)</option>
@@ -3428,7 +3439,29 @@ function evaluateMonthlyPL(monthlyPLs, combo, sizes, months) {
   const downDev = Math.sqrt(pls.filter(v=>v<0).reduce((a,v) => a + v*v, 0) / pls.length);
   const sortino = downDev > 0 ? (mean / downDev) * Math.sqrt(12) : 0;
 
-  return { totalPL, mean, sharpe, maxDD, calmar, winRate, pf, sortino };
+  // R² of equity curve (linearity)
+  let r2 = 0;
+  if (pls.length >= 2) {
+    const cumPL = []; let c = 0;
+    pls.forEach(v => { c += v; cumPL.push(c); });
+    const n = cumPL.length;
+    const xMean = (n - 1) / 2;
+    const yMean = cumPL.reduce((a,b) => a+b, 0) / n;
+    let ssXY = 0, ssXX = 0, ssTot = 0;
+    cumPL.forEach((y, i) => {
+      ssXY += (i - xMean) * (y - yMean);
+      ssXX += (i - xMean) ** 2;
+      ssTot += (y - yMean) ** 2;
+    });
+    if (ssTot > 0 && ssXX > 0) {
+      const slope = ssXY / ssXX;
+      const intercept = yMean - slope * xMean;
+      const ssRes = cumPL.reduce((a, y, i) => a + (y - (slope * i + intercept)) ** 2, 0);
+      r2 = 1 - ssRes / ssTot;
+    }
+  }
+
+  return { totalPL, mean, sharpe, maxDD, calmar, winRate, pf, sortino, r2 };
 }
 
 function runOptimizer() {
@@ -3478,22 +3511,39 @@ function runOptimizer() {
 
     status.textContent = `Window: ${windowMonthKeys[0]} to ${windowMonthKeys[windowMonthKeys.length-1]} (${windowMonthKeys.length} months)`;
 
+    // Objective function
+    const objective = document.getElementById('optObjective').value;
+    const objLabels = { sharpe:'Sharpe', equity:'Equity', winRate:'Win %', maxDD:'Min Max DD', pf:'Risk/Reward (PF)', r2:'R²' };
+
+    function getScore(metrics) {
+      switch(objective) {
+        case 'equity':  return metrics.totalPL;
+        case 'winRate': return metrics.winRate;
+        case 'maxDD':   return metrics.maxDD; // least negative = best, so higher is better
+        case 'pf':      return metrics.pf;
+        case 'r2':      return metrics.r2;
+        default:        return metrics.sharpe;
+      }
+    }
+
     // Enumerate all combinations — keep only top N in memory (bounded heap)
     let evaluated = 0;
     const heapSize = topN * 2; // keep 2x to allow dedup later
-    const topResults = []; // bounded array sorted by sharpe descending
-    let minSharpeInHeap = -Infinity;
+    const topResults = []; // bounded array sorted by objective descending
+    let minScoreInHeap = -Infinity;
 
     function insertResult(entry) {
+      const score = getScore(entry.wm);
       // Only compute full/oos metrics if this entry qualifies for top heap
-      if (topResults.length >= heapSize && entry.wm.sharpe <= minSharpeInHeap) return;
+      if (topResults.length >= heapSize && score <= minScoreInHeap) return;
+      entry._score = score;
       // Compute full and oos metrics only for promising candidates
       entry.fm = evaluateMonthlyPL(monthlyPLs, entry.combo, entry.sizes, allMonths);
       entry.om = oosMonthKeys.length >= 2 ? evaluateMonthlyPL(monthlyPLs, entry.combo, entry.sizes, oosMonthKeys) : null;
       topResults.push(entry);
-      topResults.sort((a, b) => b.wm.sharpe - a.wm.sharpe);
+      topResults.sort((a, b) => b._score - a._score);
       if (topResults.length > heapSize) topResults.length = heapSize;
-      minSharpeInHeap = topResults[topResults.length - 1].wm.sharpe;
+      minScoreInHeap = topResults[topResults.length - 1]._score;
     }
 
     for (const combo of generateCombinations(strategies, 2, maxStrats)) {
@@ -3554,8 +3604,10 @@ function renderOptimizerResults(results, allMonths, monthlyPLs, windowStart) {
   const resultsWrap = document.getElementById('optResultsWrap');
   resultsWrap.style.display = 'block';
 
+  const objLabels = { sharpe:'Sharpe', equity:'Equity', winRate:'Win %', maxDD:'Min Max DD', pf:'Risk/Reward (PF)', r2:'R²' };
+  const obj = document.getElementById('optObjective').value;
   document.getElementById('optCriteriaLabel').textContent =
-    `— ranked by Sharpe on ${allMonths.slice(windowStart).length}-month window`;
+    `— ranked by ${objLabels[obj] || 'Sharpe'} on ${allMonths.slice(windowStart).length}-month window`;
 
   // Portfolio cards
   const cardsHTML = results.map((r, idx) => {
