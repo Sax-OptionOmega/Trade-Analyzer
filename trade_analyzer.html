@@ -3976,11 +3976,13 @@ function runWalkForward() {
   const totalSteps = Math.floor((allMonths.length - trainLen) / testLen) + 1;
 
   const steps = [];
+  const oosLabels = [];
+  const oosPLs = [];
   let cursor = 0;
 
   function processStep() {
     if (cursor + trainLen >= allMonths.length) {
-      // Done
+      // Done — build cumulative equity from accumulated data
       btn.disabled = false;
       progressBar.style.width = '100%';
       progressLabel.textContent = '100%';
@@ -3991,9 +3993,12 @@ function runWalkForward() {
         return;
       }
 
-      status.textContent = `Completed ${steps.length} walk-forward steps.`;
-      setTimeout(() => { progressWrap.style.display = 'none'; }, 600);
-      renderWalkForwardResults(steps, allMonths, objLabels[objective] || 'Sharpe');
+      var cumEquity = [], cum = 0;
+      oosPLs.forEach(function(v) { cum += v; cumEquity.push(cum); });
+
+      status.textContent = 'Completed ' + steps.length + ' walk-forward steps.';
+      setTimeout(function() { progressWrap.style.display = 'none'; }, 600);
+      renderWalkForwardResults(steps, oosLabels, oosPLs, cumEquity, objLabels[objective] || 'Sharpe');
       return;
     }
 
@@ -4042,19 +4047,25 @@ function runWalkForward() {
     }
 
     if (bestCombo) {
-      const testMetrics = evaluateMonthlyPL(monthlyPLs, bestCombo, bestSizes, testMonths);
-      const testPLs = testMonths.map(m => {
-        let sum = 0;
-        bestCombo.forEach((s, i) => { sum += (monthlyPLs[s][m] || 0) * bestSizes[i]; });
+      var testMetrics = evaluateMonthlyPL(monthlyPLs, bestCombo, bestSizes, testMonths);
+      var testPLs = testMonths.map(function(m) {
+        var sum = 0;
+        bestCombo.forEach(function(s, i) { sum += (monthlyPLs[s][m] || 0) * bestSizes[i]; });
         return sum;
       });
 
+      // Accumulate equity data as we go
+      testMonths.forEach(function(m, i) {
+        oosLabels.push(m);
+        oosPLs.push(testPLs[i]);
+      });
+
       steps.push({
-        trainRange: `${trainMonths[0]} → ${trainMonths[trainMonths.length-1]}`,
-        testRange: `${testMonths[0]} → ${testMonths[testMonths.length-1]}`,
+        trainRange: trainMonths[0] + ' → ' + trainMonths[trainMonths.length-1],
+        testRange: testMonths[0] + ' → ' + testMonths[testMonths.length-1],
         combo: bestCombo, sizes: bestSizes,
         trainScore: bestScore, trainMetrics: bestTrainMetrics,
-        testMetrics, testMonths, testPLs
+        testMetrics: testMetrics, testMonths: testMonths, testPLs: testPLs
       });
     }
 
@@ -4066,71 +4077,56 @@ function runWalkForward() {
   requestAnimationFrame(processStep);
 }
 
-function renderWalkForwardResults(steps, allMonths, objLabel) {
-  const resultsWrap = document.getElementById('wfResultsWrap');
+function renderWalkForwardResults(steps, oosLabels, oosPLs, cumEquity, objLabel) {
+  var resultsWrap = document.getElementById('wfResultsWrap');
   resultsWrap.style.display = 'block';
 
   document.getElementById('wfCriteriaLabel').textContent =
-    `— ${steps.length} steps, optimized by ${objLabel}`;
+    '— ' + steps.length + ' steps, optimized by ' + objLabel;
 
   // Steps table with cumulative P&L
-  let cumPL = 0;
-  const tbody = document.getElementById('wfStepsBody');
-  tbody.innerHTML = steps.map((s, i) => {
-    const comboStr = s.combo.map((c, j) => c + (s.sizes[j] > 1 ? ' ×' + s.sizes[j] : '')).join(', ');
-    const tm = s.testMetrics;
-    const testPL = tm ? tm.totalPL : 0;
+  var cumPL = 0;
+  var tbody = document.getElementById('wfStepsBody');
+  var rows = '';
+  for (var i = 0; i < steps.length; i++) {
+    var s = steps[i];
+    var comboStr = s.combo.map(function(c, j) { return c + (s.sizes[j] > 1 ? ' x' + s.sizes[j] : ''); }).join(', ');
+    var testPL = s.testMetrics ? s.testMetrics.totalPL : 0;
     cumPL += testPL;
-    return `<tr>
-      <td>${i+1}</td>
-      <td style="font-size:11px">${s.trainRange}</td>
-      <td style="font-size:11px">${s.testRange}</td>
-      <td style="font-size:11px">${comboStr}</td>
-      <td class="r">${s.trainScore.toFixed(2)}</td>
-      <td class="r" style="color:${testPL>=0?'var(--up)':'var(--dn)'}">$${testPL.toFixed(0)}</td>
-      <td class="r" style="color:${cumPL>=0?'var(--up)':'var(--dn)'}">$${cumPL.toFixed(0)}</td>
-    </tr>`;
-  }).join('');
+    rows += '<tr>' +
+      '<td>' + (i+1) + '</td>' +
+      '<td style="font-size:11px">' + s.trainRange + '</td>' +
+      '<td style="font-size:11px">' + s.testRange + '</td>' +
+      '<td style="font-size:11px">' + comboStr + '</td>' +
+      '<td class="r">' + s.trainScore.toFixed(2) + '</td>' +
+      '<td class="r" style="color:' + (testPL>=0?'var(--up)':'var(--dn)') + '">$' + testPL.toFixed(0) + '</td>' +
+      '<td class="r" style="color:' + (cumPL>=0?'var(--up)':'var(--dn)') + '">$' + cumPL.toFixed(0) + '</td>' +
+      '</tr>';
+  }
+  tbody.innerHTML = rows;
 
-  // Build combined OOS equity curve
-  const oosPLs = [];
-  const oosLabels = [];
-  steps.forEach(s => {
-    s.testMonths.forEach((m, i) => {
-      oosLabels.push(m);
-      oosPLs.push(s.testPLs[i]);
-    });
-  });
+  // Summary stats (data already computed)
+  var totalPL = cumEquity.length ? cumEquity[cumEquity.length - 1] : 0;
+  var nMonths = oosPLs.length;
+  var mean = nMonths > 0 ? totalPL / nMonths : 0;
+  var std = Math.sqrt(oosPLs.reduce(function(a,v) { return a + (v - mean) * (v - mean); }, 0) / nMonths);
+  var sharpe = std > 0 ? (mean / std) * Math.sqrt(12) : 0;
+  var peak = 0, maxDD = 0;
+  cumEquity.forEach(function(v) { peak = Math.max(peak, v); maxDD = Math.min(maxDD, v - peak); });
+  var winMonths = oosPLs.filter(function(v) { return v > 0; }).length;
+  var winRate = nMonths > 0 ? (winMonths / nMonths * 100) : 0;
 
-  // Cumulative equity
-  const cumEquity = [];
-  let cum = 0;
-  oosPLs.forEach(v => { cum += v; cumEquity.push(cum); });
+  document.getElementById('wfSummary').innerHTML =
+    '<div><strong style="color:var(--gold)">Total OOS P&L:</strong> <span style="color:' + (totalPL>=0?'var(--up)':'var(--dn)') + '">$' + totalPL.toFixed(0) + '</span></div>' +
+    '<div><strong style="color:var(--gold)">OOS Months:</strong> ' + nMonths + '</div>' +
+    '<div><strong style="color:var(--gold)">Sharpe (OOS):</strong> ' + sharpe.toFixed(2) + '</div>' +
+    '<div><strong style="color:var(--gold)">Max DD (OOS):</strong> <span style="color:var(--dn)">$' + maxDD.toFixed(0) + '</span></div>' +
+    '<div><strong style="color:var(--gold)">Win Rate (OOS):</strong> ' + winRate.toFixed(0) + '%</div>' +
+    '<div><strong style="color:var(--gold)">Avg Monthly P&L:</strong> <span style="color:' + (mean>=0?'var(--up)':'var(--dn)') + '">$' + mean.toFixed(0) + '</span></div>' +
+    '<div><strong style="color:var(--gold)">Walk-Forward Steps:</strong> ' + steps.length + '</div>';
 
-  // Summary stats
-  const totalPL = cum;
-  const nMonths = oosPLs.length;
-  const mean = totalPL / nMonths;
-  const std = Math.sqrt(oosPLs.reduce((a,v) => a + (v - mean)**2, 0) / nMonths);
-  const sharpe = std > 0 ? (mean / std) * Math.sqrt(12) : 0;
-  let peak = 0, maxDD = 0;
-  cumEquity.forEach(v => { peak = Math.max(peak, v); maxDD = Math.min(maxDD, v - peak); });
-  const winMonths = oosPLs.filter(v => v > 0).length;
-  const winRate = nMonths > 0 ? (winMonths / nMonths * 100) : 0;
-
-  const summDiv = document.getElementById('wfSummary');
-  summDiv.innerHTML = `
-    <div><strong style="color:var(--gold)">Total OOS P&L:</strong> <span style="color:${totalPL>=0?'var(--up)':'var(--dn)'}">$${totalPL.toFixed(0)}</span></div>
-    <div><strong style="color:var(--gold)">OOS Months:</strong> ${nMonths}</div>
-    <div><strong style="color:var(--gold)">Sharpe (OOS):</strong> ${sharpe.toFixed(2)}</div>
-    <div><strong style="color:var(--gold)">Max DD (OOS):</strong> <span style="color:var(--dn)">$${maxDD.toFixed(0)}</span></div>
-    <div><strong style="color:var(--gold)">Win Rate (OOS):</strong> ${winRate.toFixed(0)}%</div>
-    <div><strong style="color:var(--gold)">Avg Monthly P&L:</strong> <span style="color:${mean>=0?'var(--up)':'var(--dn)'}">$${mean.toFixed(0)}</span></div>
-    <div><strong style="color:var(--gold)">Walk-Forward Steps:</strong> ${steps.length}</div>
-  `;
-
-  // Draw equity chart — delay to let container become visible
-  setTimeout(function() { drawWalkForwardEquity(oosLabels, cumEquity); }, 100);
+  // Draw equity chart directly — container is already visible
+  drawWalkForwardEquity(oosLabels, cumEquity);
 }
 
 function drawWalkForwardEquity(labels, cumEquity) {
