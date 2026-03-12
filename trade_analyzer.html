@@ -4059,7 +4059,7 @@ function runWalkForward() {
 
       status.textContent = 'Completed ' + steps.length + ' walk-forward steps. (' + oosTrades.length + ' trades)';
       setTimeout(function() { progressWrap.style.display = 'none'; }, 600);
-      renderWalkForwardResults(steps, oosLabels, oosPLs, cumEquity, tradeEquity, tradeDates, objLabels[objective] || 'Sharpe');
+      renderWalkForwardResults(steps, oosLabels, oosPLs, cumEquity, tradeEquity, tradeDates, oosTrades, objLabels[objective] || 'Sharpe');
       return;
     }
 
@@ -4155,7 +4155,7 @@ function runWalkForward() {
   requestAnimationFrame(processStep);
 }
 
-function renderWalkForwardResults(steps, oosLabels, oosPLs, cumEquity, tradeEquity, tradeDates, objLabel) {
+function renderWalkForwardResults(steps, oosLabels, oosPLs, cumEquity, tradeEquity, tradeDates, oosTrades, objLabel) {
   var resultsWrap = document.getElementById('wfResultsWrap');
   resultsWrap.style.display = 'block';
 
@@ -4255,6 +4255,28 @@ function renderWalkForwardResults(steps, oosLabels, oosPLs, cumEquity, tradeEqui
            '<td style="text-align:right;padding:3px 0;font-weight:600;' + (color ? 'color:' + color : '') + '">' + value + '</td></tr>';
   }
 
+  // Best/Worst month
+  var bestMonth = 0, worstMonth = 0, bestMonthKey = '', worstMonthKey = '';
+  for (var mi = 0; mi < oosPLs.length; mi++) {
+    if (oosPLs[mi] > bestMonth || !bestMonthKey) { bestMonth = oosPLs[mi]; bestMonthKey = oosLabels[mi]; }
+    if (oosPLs[mi] < worstMonth || !worstMonthKey) { worstMonth = oosPLs[mi]; worstMonthKey = oosLabels[mi]; }
+  }
+
+  // Best/Worst week (ISO week grouping from oosTrades)
+  var weekMap = {};
+  oosTrades.forEach(function(t) {
+    var d = t.date;
+    var jan1 = new Date(d.getFullYear(), 0, 1);
+    var wk = Math.ceil(((d - jan1) / 86400000 + jan1.getDay() + 1) / 7);
+    var key = d.getFullYear() + '-W' + String(wk).padStart(2, '0');
+    weekMap[key] = (weekMap[key] || 0) + t.pl;
+  });
+  var bestWeek = 0, worstWeek = 0, bestWeekKey = '', worstWeekKey = '';
+  Object.keys(weekMap).forEach(function(k) {
+    if (weekMap[k] > bestWeek || !bestWeekKey) { bestWeek = weekMap[k]; bestWeekKey = k; }
+    if (weekMap[k] < worstWeek || !worstWeekKey) { worstWeek = weekMap[k]; worstWeekKey = k; }
+  });
+
   document.getElementById('wfSummary').innerHTML =
     '<table style="width:100%;font-size:12px;border-collapse:collapse">' +
     statRow('Total P&L', f$(totalPL), cv(totalPL)) +
@@ -4272,6 +4294,10 @@ function renderWalkForwardResults(steps, oosLabels, oosPLs, cumEquity, tradeEqui
     statRow('Max Consec. Win', maxConsW, 'var(--accent)') +
     statRow('Max Consec. Loss', maxConsL, 'var(--red)') +
     statRow('Avg Monthly P&L', f$(meanM), cv(meanM)) +
+    statRow('Best Month', f$(bestMonth) + ' (' + bestMonthKey + ')', 'var(--accent)') +
+    statRow('Worst Month', f$(worstMonth) + ' (' + worstMonthKey + ')', 'var(--red)') +
+    statRow('Best Week', f$(bestWeek) + ' (' + bestWeekKey + ')', 'var(--accent)') +
+    statRow('Worst Week', f$(worstWeek) + ' (' + worstWeekKey + ')', 'var(--red)') +
     statRow('WF Steps', steps.length, '') +
     '</table>';
 
