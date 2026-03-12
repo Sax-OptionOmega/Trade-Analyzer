@@ -4377,12 +4377,18 @@ function renderWalkForwardResults(steps, oosLabels, oosPLs, cumEquity, tradeEqui
            '<td style="text-align:right;padding:3px 0;font-weight:600;' + (color ? 'color:' + color : '') + '">' + value + '</td></tr>';
   }
 
-  // Best/Worst month
+  // Best/Worst month (from actual trades for accuracy in weekly mode)
+  var monthPLMap = {};
+  oosTrades.forEach(function(t) {
+    var d = t.date;
+    var mk = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+    monthPLMap[mk] = (monthPLMap[mk] || 0) + t.pl;
+  });
   var bestMonth = 0, worstMonth = 0, bestMonthKey = '', worstMonthKey = '';
-  for (var mi = 0; mi < oosPLs.length; mi++) {
-    if (oosPLs[mi] > bestMonth || !bestMonthKey) { bestMonth = oosPLs[mi]; bestMonthKey = oosLabels[mi]; }
-    if (oosPLs[mi] < worstMonth || !worstMonthKey) { worstMonth = oosPLs[mi]; worstMonthKey = oosLabels[mi]; }
-  }
+  Object.keys(monthPLMap).forEach(function(k) {
+    if (monthPLMap[k] > bestMonth || !bestMonthKey) { bestMonth = monthPLMap[k]; bestMonthKey = k; }
+    if (monthPLMap[k] < worstMonth || !worstMonthKey) { worstMonth = monthPLMap[k]; worstMonthKey = k; }
+  });
 
   // Best/Worst week (ISO week grouping from oosTrades)
   var weekMap = {};
@@ -4423,13 +4429,14 @@ function renderWalkForwardResults(steps, oosLabels, oosPLs, cumEquity, tradeEqui
     statRow('WF Steps', steps.length, '') +
     '</table>';
 
-  // Monthly P&L table (year × month grid)
+  // Monthly P&L table (year × month grid) — built from actual trades for accuracy in weekly mode
   var monthlyMap = {};
-  oosLabels.forEach(function(mk, i) {
-    var parts = mk.split('-');
-    var yr = parts[0], mo = parseInt(parts[1]) - 1;
+  oosTrades.forEach(function(t) {
+    var d = t.date;
+    var yr = String(d.getFullYear());
+    var mo = d.getMonth();
     if (!monthlyMap[yr]) monthlyMap[yr] = {};
-    monthlyMap[yr][mo] = (monthlyMap[yr][mo] || 0) + oosPLs[i];
+    monthlyMap[yr][mo] = (monthlyMap[yr][mo] || 0) + t.pl;
   });
 
   function fmtCell(v) {
