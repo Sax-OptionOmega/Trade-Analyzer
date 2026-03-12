@@ -81,7 +81,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 /* TABLE */
 .tbl{width:100%;border-collapse:collapse;}
 .tbl th{padding:8px 12px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);background:var(--s2);font-family:'Space Mono',monospace;position:sticky;top:0;z-index:1;}
-.tbl th.r{text-align:right;}
+.tbl th.r,.tbl td.r{text-align:right;}
 .tbl td{padding:7px 12px;border-top:1px solid var(--border);font-size:12px;}
 .tbl tr:hover td{background:rgba(255,255,255,.02);}
 .tm{color:var(--muted);font-family:'Space Mono',monospace;}
@@ -706,10 +706,7 @@ input[type=range].zslider::-webkit-slider-thumb {
             <label>Start Date</label>
             <input type="date" class="opt-input" id="optStartDate" style="width:140px">
           </div>
-          <div class="opt-field">
-            <label>End Date</label>
-            <input type="date" class="opt-input" id="optEndDate" style="width:140px">
-          </div>
+          <input type="hidden" id="optEndDate">
           <div class="opt-field">
             <label>+ Months</label>
             <select class="opt-select" id="optQuickRange" onchange="applyQuickRange()">
@@ -741,9 +738,9 @@ input[type=range].zslider::-webkit-slider-thumb {
           <div class="opt-field">
             <label>Max Size per Strategy</label>
             <select class="opt-select" id="optMaxSize">
-              <option value="1">1 (no scaling)</option>
+              <option value="1" selected>1 (no scaling)</option>
               <option value="2">Up to 2x</option>
-              <option value="3" selected>Up to 3x</option>
+              <option value="3">Up to 3x</option>
             </select>
           </div>
           <div class="opt-field">
