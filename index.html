@@ -4160,84 +4160,74 @@ function renderWalkForwardResults(steps, oosLabels, oosPLs, cumEquity, tradeEqui
 }
 
 function drawWalkForwardEquity(labels, cumEquity) {
-  var r = setupCanvas('wfEqChart', 280);
+  var r = setupCanvas('wfEqChart', 220);
   if (!r) return;
   var ctx = r.ctx, W = r.W, H = r.H;
   var pL = 64, pR = 16, pT = 20, pB = 30;
   var cw = W - pL - pR, ch = H - pT - pB;
   var n = cumEquity.length;
   if (n < 2) return;
-
+  var color = '#00d4aa';
   var muted = '#546a87', border = '#1c2a40';
 
-  // Find min/max
-  var minV = 0, maxV = 0;
-  for (var i = 0; i < n; i++) {
-    if (cumEquity[i] < minV) minV = cumEquity[i];
-    if (cumEquity[i] > maxV) maxV = cumEquity[i];
+  // Compute drawdown
+  var dd = [], peak = -Infinity;
+  for (var di = 0; di < n; di++) {
+    if (cumEquity[di] > peak) peak = cumEquity[di];
+    dd.push(cumEquity[di] - peak);
   }
-  var range = maxV - minV || 1;
+  var minD = Math.min.apply(null, dd) || 0;
 
+  var minE = Math.min.apply(null, cumEquity);
+  var maxE = Math.max.apply(null, cumEquity);
   var xS = function(i) { return pL + (i / (n - 1)) * cw; };
-  var yS = function(v) { return pT + ch - ((v - minV) / range) * ch; };
-
-  // Zero line
-  if (minV < 0 && maxV > 0) {
-    var zeroY = yS(0);
-    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
-    ctx.lineWidth = 1;
-    ctx.setLineDash([4, 4]);
-    ctx.beginPath(); ctx.moveTo(pL, zeroY); ctx.lineTo(pL + cw, zeroY); ctx.stroke();
-    ctx.setLineDash([]);
-  }
+  var yS = function(v) { return pT + ch - ((v - minE) / (maxE - minE || 1)) * ch; };
 
   // Grid
   for (var gi = 0; gi <= 4; gi++) {
     var gy = pT + ch / 4 * gi;
     ctx.strokeStyle = border; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(pL, gy); ctx.lineTo(pL + cw, gy); ctx.stroke();
-    var gv = maxV - range / 4 * gi;
+    var gv = maxE - (maxE - minE) / 4 * gi;
     ctx.fillStyle = muted; ctx.font = '9px Space Mono,monospace'; ctx.textAlign = 'right';
     ctx.fillText((gv >= 0 ? '' : '-') + '$' + Math.round(Math.abs(gv) / 1000) + 'k', pL - 4, gy + 3);
   }
 
-  // X-axis labels
-  var labelStep = Math.max(1, Math.floor(n / 10));
-  ctx.fillStyle = muted; ctx.font = '8px Space Mono,monospace'; ctx.textAlign = 'center';
-  for (var li = 0; li < n; li += labelStep) {
-    ctx.fillText(labels[li], xS(li), H - 4);
-  }
-
-  // Fill area
+  // Drawdown area (below equity, same style as portfolio)
+  var ddScale = ch * 0.2 / Math.abs(minD || 1);
+  var base = pT + ch;
   ctx.beginPath();
-  ctx.moveTo(xS(0), yS(0));
-  for (var fi = 0; fi < n; fi++) ctx.lineTo(xS(fi), yS(cumEquity[fi]));
-  ctx.lineTo(xS(n - 1), yS(0));
+  ctx.moveTo(xS(0), base);
+  for (var ddi = 0; ddi < n; ddi++) {
+    ctx.lineTo(xS(ddi), base + dd[ddi] * ddScale);
+  }
+  ctx.lineTo(xS(n - 1), base);
   ctx.closePath();
-  ctx.fillStyle = 'rgba(0,212,170,0.1)';
+  ctx.fillStyle = 'rgba(255,77,106,.18)';
   ctx.fill();
 
-  // Equity line
+  // Equity fill (gradient)
+  var grad = ctx.createLinearGradient(0, pT, 0, pT + ch);
+  grad.addColorStop(0, hexToRgba(color, 0.25));
+  grad.addColorStop(1, hexToRgba(color, 0.02));
   ctx.beginPath();
-  ctx.moveTo(xS(0), yS(cumEquity[0]));
-  for (var ei = 1; ei < n; ei++) ctx.lineTo(xS(ei), yS(cumEquity[ei]));
-  ctx.strokeStyle = '#00d4aa';
-  ctx.lineWidth = 2;
-  ctx.stroke();
-
-  // Drawdown shading
-  var peak = 0;
-  ctx.fillStyle = 'rgba(255,82,82,0.15)';
-  for (var di = 0; di < n; di++) {
-    if (cumEquity[di] > peak) peak = cumEquity[di];
-    if (cumEquity[di] < peak) {
-      ctx.fillRect(xS(di) - cw / n / 2, yS(peak), cw / n, yS(cumEquity[di]) - yS(peak));
-    }
+  for (var fi = 0; fi < n; fi++) {
+    fi === 0 ? ctx.moveTo(xS(fi), yS(cumEquity[fi])) : ctx.lineTo(xS(fi), yS(cumEquity[fi]));
   }
+  ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.stroke();
+  ctx.lineTo(xS(n - 1), pT + ch);
+  ctx.lineTo(pL, pT + ch);
+  ctx.closePath();
+  ctx.fillStyle = grad;
+  ctx.fill();
 
-  // Title
-  ctx.fillStyle = '#00d4aa'; ctx.font = 'bold 10px Space Mono,monospace'; ctx.textAlign = 'left';
-  ctx.fillText('WALK-FORWARD OOS EQUITY', pL, pT - 6);
+  // X-axis labels (show years like portfolio chart)
+  ctx.fillStyle = muted; ctx.font = '9px Space Mono,monospace'; ctx.textAlign = 'center';
+  var lastYear = -1;
+  for (var li = 0; li < n; li++) {
+    var yr = parseInt(labels[li].slice(-2)) + 2000;
+    if (yr !== lastYear) { lastYear = yr; ctx.fillText(String(yr), xS(li), H - 4); }
+  }
 }
 
 // ── ZOOM ──────────────────────────────────────────────────────────────────────
