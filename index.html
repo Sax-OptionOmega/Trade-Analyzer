@@ -3535,8 +3535,10 @@ function* generateCombinations(arr, minK, maxK) {
   }
 }
 
-function evaluateMonthlyPL(monthlyPLs, combo, sizes, months) {
-  // combo: array of strategy names, sizes: array of ints, months: sorted month keys
+function evaluateMonthlyPL(monthlyPLs, combo, sizes, months, periodsPerYear) {
+  // combo: array of strategy names, sizes: array of ints, months: sorted period keys
+  // periodsPerYear: 12 for monthly (default), 52 for weekly
+  const ppy = periodsPerYear || 12;
   const pls = months.map(m => {
     let sum = 0;
     combo.forEach((s, i) => { sum += (monthlyPLs[s][m] || 0) * sizes[i]; });
@@ -3546,14 +3548,14 @@ function evaluateMonthlyPL(monthlyPLs, combo, sizes, months) {
   const totalPL = pls.reduce((a,b) => a+b, 0);
   const mean = totalPL / pls.length;
   const std = Math.sqrt(pls.reduce((a,v) => a + (v-mean)**2, 0) / pls.length);
-  const sharpe = std > 0 ? (mean / std) * Math.sqrt(12) : 0;
+  const sharpe = std > 0 ? (mean / std) * Math.sqrt(ppy) : 0;
 
   // Max drawdown
   let cum = 0, peak = 0, maxDD = 0;
   pls.forEach(v => { cum += v; peak = Math.max(peak, cum); maxDD = Math.min(maxDD, cum - peak); });
 
   // Calmar
-  const annReturn = mean * 12;
+  const annReturn = mean * ppy;
   const calmar = maxDD < 0 ? annReturn / Math.abs(maxDD) : (annReturn > 0 ? 999 : 0);
 
   // Win rate & profit factor
@@ -3566,7 +3568,7 @@ function evaluateMonthlyPL(monthlyPLs, combo, sizes, months) {
 
   // Sortino
   const downDev = Math.sqrt(pls.filter(v=>v<0).reduce((a,v) => a + v*v, 0) / pls.length);
-  const sortino = downDev > 0 ? (mean / downDev) * Math.sqrt(12) : 0;
+  const sortino = downDev > 0 ? (mean / downDev) * Math.sqrt(ppy) : 0;
 
   // Expectancy: WinRate × (AvgWin / |AvgLoss|)
   const avgWin = wins.length > 0 ? grossW / wins.length : 0;
@@ -4070,6 +4072,7 @@ function runWalkForward() {
 
   // Determine mode: weekly (testDays < 28) or monthly (testDays >= 28)
   const useWeekly = testDays < 28;
+  const ppy = useWeekly ? 52 : 12; // periods per year for annualization
   const trainLen = useWeekly ? Math.round(trainMonthsVal * 4.33) : trainMonthsVal;
   const testLen = useWeekly ? Math.max(1, Math.round(testDays / 7)) : Math.max(1, Math.round(testDays / 30));
   const modeLabel = useWeekly ? 'weeks' : 'months';
@@ -4190,7 +4193,7 @@ function runWalkForward() {
         var greedyCombo = selected.map(function(s) { return s.name; });
         var greedySizes = greedyCombo.map(function() { return 1; });
         if (minTrades <= 0 || countTradesInWindow(periodCounts, greedyCombo, trainPeriods) >= minTrades) {
-          var wm = evaluateMonthlyPL(periodPLs, greedyCombo, greedySizes, trainPeriods);
+          var wm = evaluateMonthlyPL(periodPLs, greedyCombo, greedySizes, trainPeriods, ppy);
           if (wm) {
             bestScore = getScore(wm);
             bestCombo = greedyCombo;
@@ -4205,7 +4208,7 @@ function runWalkForward() {
         if (minTrades > 0 && countTradesInWindow(periodCounts, combo, trainPeriods) < minTrades) continue;
         if (maxSize === 1) {
           const sizes = combo.map(() => 1);
-          const wm = evaluateMonthlyPL(periodPLs, combo, sizes, trainPeriods);
+          const wm = evaluateMonthlyPL(periodPLs, combo, sizes, trainPeriods, ppy);
           if (wm) {
             const score = getScore(wm);
             if (score > bestScore) {
@@ -4219,7 +4222,7 @@ function runWalkForward() {
             const sizes = [];
             let rem = p;
             for (let j = 0; j < k; j++) { sizes.push((rem % maxSize) + 1); rem = Math.floor(rem / maxSize); }
-            const wm = evaluateMonthlyPL(periodPLs, combo, sizes, trainPeriods);
+            const wm = evaluateMonthlyPL(periodPLs, combo, sizes, trainPeriods, ppy);
             if (wm) {
               const score = getScore(wm);
               if (score > bestScore) {
@@ -4232,7 +4235,7 @@ function runWalkForward() {
     }
 
     if (bestCombo) {
-      var testMetrics = evaluateMonthlyPL(periodPLs, bestCombo, bestSizes, testPeriods);
+      var testMetrics = evaluateMonthlyPL(periodPLs, bestCombo, bestSizes, testPeriods, ppy);
       var testPLs = testPeriods.map(function(m) {
         var sum = 0;
         bestCombo.forEach(function(s, i) { sum += (periodPLs[s][m] || 0) * bestSizes[i]; });
