@@ -45,8 +45,9 @@ Built by a retail trader, for retail traders.
 - **0DTE handling**: margin for same-day trades is automatically set to Max Loss (no leverage)
 
 ### 🔬 Rolling Window Portfolio Optimizer
-- **End Date + Months Back**: select an end date and a look-back period to define the optimization window
+- **End Date + Months Back**: select an end date and a free-form look-back period (any number of months) to define the optimization window
 - **6 fitness functions**: Sharpe, Equity (Total P&L), Win %, Min Max DD, Risk/Reward (Profit Factor), R² (equity linearity)
+- **Min Trades filter**: skip combinations with fewer than N trades in the window (default 20) to reduce overfitting from statistically insignificant samples
 - Brute-force evaluation of all strategy combinations and size allocations
 - Ranked results with full metrics: Calmar, Sortino, Profit Factor, Win Rate, Max DD
 - **Out-of-sample validation**: metrics computed on data outside the optimization window
@@ -166,25 +167,6 @@ Exported CSV from **[Option Omega](https://optonomega.com)** with the following 
 
 ### Strategy Detail
 ![Strategy Detail](screenshots/detail.png)
-
----
-
-### 🔬 Rolling Window Portfolio Optimizer
-- **End Date + Months Back**: select end date and look-back period to define the optimization window
-- **6 fitness functions**: Sharpe, Equity, Win %, Min Max DD, Risk/Reward (PF), R² (equity linearity)
-- Brute-force evaluation of all strategy combinations and size allocations
-- Ranked results with full metrics: Calmar, Sortino, Profit Factor, Win Rate, Max DD
-- **Out-of-sample validation**: metrics computed on data outside the optimization window
-- Interactive equity curve showing both in-sample and out-of-sample performance
-
-### 🔄 Walk-Forward Backtest
-- **Sliding window**: trains on N months, trades the best portfolio for M months, repeats until end of data
-- Uses the same fitness function selected for the optimizer
-- **Trade-level equity curve** with drawdown visualization (individual trades, not monthly sums)
-- Per-step detail table with train/test windows, selected portfolio, and cumulative P&L
-- **Comprehensive OOS statistics**: Sharpe, Sortino, Calmar, R², Profit Factor, Win Rate, Max DD, Max Consecutive Win/Loss
-- **Monthly P&L table**: year × month grid with annual totals and monthly averages
-- Progress bar with step-by-step status updates
 
 ---
 

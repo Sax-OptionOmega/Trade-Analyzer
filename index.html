@@ -708,15 +708,7 @@ input[type=range].zslider::-webkit-slider-thumb {
           </div>
           <div class="opt-field">
             <label>Months Back</label>
-            <select class="opt-select" id="optQuickRange" onchange="applyQuickRange()">
-              <option value="1">1</option>
-              <option value="2">2</option>
-              <option value="3">3</option>
-              <option value="6" selected>6</option>
-              <option value="9">9</option>
-              <option value="12">12</option>
-              <option value="24">24</option>
-            </select>
+            <input type="number" class="opt-input" id="optQuickRange" min="1" max="120" value="6" style="width:70px" onchange="applyQuickRange()">
           </div>
           <input type="hidden" id="optStartDate">
           <div class="opt-field">
