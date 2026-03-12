@@ -821,16 +821,11 @@ input[type=range].zslider::-webkit-slider-thumb {
         </div>
       </div>
 
-      <div class="g2">
-        <div>
-          <div class="sec">Walk-Forward Equity Curve (Out-of-Sample only)</div>
-          <div class="card"><div class="cw" style="position:relative"><canvas id="wfEqChart" height="280"></canvas></div></div>
-        </div>
-        <div>
-          <div class="sec">Walk-Forward Summary</div>
-          <div class="card"><div class="card-body" id="wfSummary" style="font-size:13px;line-height:2"></div></div>
-        </div>
-      </div>
+      <div class="sec">Walk-Forward Equity Curve (Out-of-Sample only)</div>
+      <div class="card"><div class="cw" style="position:relative;height:300px"><canvas id="wfEqChart"></canvas></div></div>
+
+      <div class="sec" style="margin-top:16px">Walk-Forward Summary</div>
+      <div class="card"><div class="card-body" id="wfSummary" style="font-size:13px;line-height:2"></div></div>
     </div>
 
     <div id="optResultsWrap" style="display:none">
@@ -4132,8 +4127,8 @@ function renderWalkForwardResults(steps, allMonths, objLabel) {
     <div><strong style="color:var(--gold)">Walk-Forward Steps:</strong> ${steps.length}</div>
   `;
 
-  // Draw equity chart
-  drawWalkForwardEquity(oosLabels, cumEquity, steps);
+  // Draw equity chart — delay to let container become visible
+  setTimeout(() => drawWalkForwardEquity(oosLabels, cumEquity, steps), 50);
 }
 
 function drawWalkForwardEquity(labels, cumEquity, steps) {
