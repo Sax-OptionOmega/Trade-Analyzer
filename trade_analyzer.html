@@ -821,6 +821,9 @@ input[type=range].zslider::-webkit-slider-thumb {
       <div class="sec">Walk-Forward Equity Curve (Out-of-Sample only)</div>
       <div class="card"><div class="cw"><canvas id="wfEqChart" height="300"></canvas></div></div>
 
+      <div class="sec" style="margin-top:16px">Strategy Selection Frequency</div>
+      <div class="card"><div class="cw"><canvas id="wfFreqChart" height="250"></canvas></div></div>
+
       <div class="g2" style="margin-top:16px">
         <div>
           <div class="sec">Walk-Forward Summary</div>
@@ -4310,8 +4313,65 @@ function renderWalkForwardResults(steps, oosLabels, oosPLs, cumEquity, tradeEqui
   }
   mBody.innerHTML = mRows;
 
+  // Strategy frequency chart
+  var freqMap = {};
+  steps.forEach(function(s) {
+    s.combo.forEach(function(name) {
+      freqMap[name] = (freqMap[name] || 0) + 1;
+    });
+  });
+  var freqEntries = Object.keys(freqMap).map(function(k) { return { name: k, count: freqMap[k] }; });
+  freqEntries.sort(function(a, b) { return b.count - a.count; });
+  drawWalkForwardFrequency(freqEntries, steps.length);
+
   // Draw trade-level equity chart — container is already visible
   drawWalkForwardEquity(tradeDates, tradeEquity);
+}
+
+function drawWalkForwardFrequency(entries, totalSteps) {
+  if (!entries.length) return;
+  var barH = 22, gap = 4, labelW = 160, pT = 10, pR = 50;
+  var canvasH = pT + entries.length * (barH + gap) + 10;
+  var r = setupCanvas('wfFreqChart', canvasH);
+  if (!r) return;
+  var ctx = r.ctx, W = r.W;
+  var barArea = W - labelW - pR;
+  var maxCount = entries[0].count;
+
+  ctx.font = '11px Space Mono,monospace';
+  ctx.textBaseline = 'middle';
+
+  for (var i = 0; i < entries.length; i++) {
+    var e = entries[i];
+    var y = pT + i * (barH + gap);
+    var pct = e.count / totalSteps;
+    var bw = Math.max(2, (e.count / maxCount) * barArea);
+
+    // Color: green if used >50% of steps, gold if >25%, red otherwise
+    var col = pct >= 0.5 ? '#00d4aa' : pct >= 0.25 ? '#f0b429' : '#ff4d6a';
+
+    // Bar
+    ctx.fillStyle = col;
+    ctx.beginPath();
+    ctx.roundRect(labelW, y, bw, barH, 3);
+    ctx.fill();
+
+    // Bar fill gradient
+    ctx.fillStyle = hexToRgba(col, 0.15);
+    ctx.beginPath();
+    ctx.roundRect(labelW, y, barArea, barH, 3);
+    ctx.fill();
+
+    // Strategy name (left)
+    ctx.fillStyle = '#c8d6e5';
+    ctx.textAlign = 'right';
+    ctx.fillText(e.name.length > 20 ? e.name.slice(0, 18) + '..' : e.name, labelW - 8, y + barH / 2);
+
+    // Count + percentage (right of bar)
+    ctx.fillStyle = col;
+    ctx.textAlign = 'left';
+    ctx.fillText(e.count + '/' + totalSteps + ' (' + Math.round(pct * 100) + '%)', labelW + bw + 6, y + barH / 2);
+  }
 }
 
 function drawWalkForwardEquity(labels, cumEquity) {
