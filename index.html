@@ -4146,7 +4146,7 @@ function runWalkForward() {
     // Find best portfolio on train window
     let bestCombo = null, bestSizes = null, bestScore = -Infinity, bestTrainMetrics = null;
 
-    const useGreedy = maxSize === 1 && (objective === 'winRate' || objective === 'winRateTrend');
+    const useGreedy = useWeekly && maxSize === 1 && (objective === 'winRate' || objective === 'winRateTrend');
 
     if (useGreedy) {
       // ── FAST GREEDY PATH for WinRate/WinRateTrend with size=1 ──
