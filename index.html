@@ -3405,12 +3405,10 @@ function initOptimizerDates() {
   const allMonths = getAllMonthKeys(base.trades);
   if (!allMonths.length) return;
   const endEl = document.getElementById('optEndDate');
-  // Set end date to last month of data if empty
+  // Set end date to today if empty
   if (!endEl.value) {
-    const last = allMonths[allMonths.length - 1];
-    const [y, m] = last.split('-').map(Number);
-    const lastDay = new Date(y, m, 0).getDate();
-    endEl.value = last + '-' + String(lastDay).padStart(2, '0');
+    const now = new Date();
+    endEl.value = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
   }
   applyQuickRange();
 }
