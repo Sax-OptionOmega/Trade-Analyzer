@@ -152,18 +152,27 @@ Exported CSV from **[Option Omega](https://optonomega.com)** with the following 
 ---
 
 ### 🔬 Rolling Window Portfolio Optimizer
-- **Custom date range**: select any Start Date / End Date to define the optimization window
+- **End Date + Months Back**: select end date and look-back period to define the optimization window
+- **6 fitness functions**: Sharpe, Equity, Win %, Min Max DD, Risk/Reward (PF), R² (equity linearity)
 - Brute-force evaluation of all strategy combinations and size allocations
-- Ranked by Sharpe ratio with full metrics: Calmar, Sortino, Profit Factor, Win Rate, Max DD
+- Ranked results with full metrics: Calmar, Sortino, Profit Factor, Win Rate, Max DD
 - **Out-of-sample validation**: metrics computed on data outside the optimization window
 - Interactive equity curve showing both in-sample and out-of-sample performance
-- Configurable: max strategies per portfolio, max size multiplier, number of top results
+
+### 🔄 Walk-Forward Backtest
+- **Sliding window**: trains on N months, trades the best portfolio for M months, repeats until end of data
+- Uses the same fitness function selected for the optimizer
+- **Trade-level equity curve** with drawdown visualization (individual trades, not monthly sums)
+- Per-step detail table with train/test windows, selected portfolio, and cumulative P&L
+- **Comprehensive OOS statistics**: Sharpe, Sortino, Calmar, R², Profit Factor, Win Rate, Max DD, Max Consecutive Win/Loss
+- **Monthly P&L table**: year × month grid with annual totals and monthly averages
+- Progress bar with step-by-step status updates
 
 ---
 
 ## Roadmap
 - [x] Rolling window portfolio optimizer with custom date range
-- [ ] Walk-forward validation of portfolio rules
+- [x] Walk-forward backtest with trade-level equity curve
 - [ ] AI-powered strategy selection based on current market conditions
 - [ ] Strategy automation tools *(in development — [join waitlist](https://docs.google.com/forms/d/e/1FAIpQLSf-FkBSWFW1DuAekiaYs5b4AqVt9iBJBdW4V3c4rwdSP3IjFA/viewform?usp=header))*
 
