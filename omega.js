@@ -8,6 +8,7 @@
 
   var OMEGA_URL = 'https://optionomega.com/dashboard/tests';
   var strategies = []; // parsed strategy list
+  var omegaPopup = null; // reference to the popup window
 
   // ── 1. Inject tab button ──────────────────────────────────────────────────
   var tabs = document.getElementById('tabs');
@@ -30,26 +31,17 @@
       '<div class="card-hdr">' +
         '<span>Strategies</span>' +
         '<div style="display:flex;gap:8px;align-items:center;">' +
+          '<button class="btn-back" id="omegaOpenBtn">Open Option Omega</button>' +
           '<button class="btn-back" id="omegaReadBtn" style="border-color:var(--accent);color:var(--accent);">Read Strategies</button>' +
           '<span id="omegaStatus" style="font-size:11px;color:var(--muted);font-family:\'Space Mono\',monospace;"></span>' +
         '</div>' +
       '</div>' +
-      '<div class="card-body" id="omegaStrategies" style="max-height:400px;overflow-y:auto;">' +
-        '<div style="color:var(--muted);font-size:13px;">Click <b>Read Strategies</b> to fetch the strategy list from Option Omega.</div>' +
-      '</div>' +
-    '</div>' +
-
-    // ── Iframe ──
-    '<div class="card" style="height:calc(100vh - 500px);min-height:400px;">' +
-      '<div class="card-hdr">' +
-        '<span>Option Omega &mdash; Tests</span>' +
-        '<div style="display:flex;gap:8px;align-items:center;">' +
-          '<button class="btn-back" id="omegaReloadBtn">Reload</button>' +
-          '<button class="btn-back" id="omegaNewTabBtn">Open in New Tab</button>' +
+      '<div class="card-body" id="omegaStrategies" style="max-height:600px;overflow-y:auto;">' +
+        '<div style="color:var(--muted);font-size:13px;">' +
+          '1. Click <b>Open Option Omega</b> to open the dashboard in a popup<br>' +
+          '2. Log in if needed, then switch to <b>Table</b> view<br>' +
+          '3. Click <b>Read Strategies</b> to extract the strategy list' +
         '</div>' +
-      '</div>' +
-      '<div class="card-body" style="padding:0;height:calc(100% - 44px);">' +
-        '<iframe id="omegaFrame" src="about:blank" style="width:100%;height:100%;border:none;border-radius:0 0 10px 10px;background:#fff;"></iframe>' +
       '</div>' +
     '</div>';
 
@@ -57,23 +49,32 @@
   if (zoomWrap) zoomWrap.appendChild(container);
 
   // ── 3. Button handlers ────────────────────────────────────────────────────
-  document.getElementById('omegaReloadBtn').addEventListener('click', function() {
-    document.getElementById('omegaFrame').src = OMEGA_URL;
-  });
-  document.getElementById('omegaNewTabBtn').addEventListener('click', function() {
-    window.open(OMEGA_URL, '_blank');
+  document.getElementById('omegaOpenBtn').addEventListener('click', function() {
+    openOmegaPopup();
   });
   document.getElementById('omegaReadBtn').addEventListener('click', readStrategies);
 
   // ── 4. Hook into switchTab ────────────────────────────────────────────────
   window.omegaOnTab = function(id) {
-    if (id === 'omega') {
-      var f = document.getElementById('omegaFrame');
-      if (!f.src || f.src === 'about:blank') f.src = OMEGA_URL;
-    }
+    // nothing needed on tab switch for now
   };
 
-  // ── 5. Read Strategies ────────────────────────────────────────────────────
+  // ── 5. Popup management ───────────────────────────────────────────────────
+  function openOmegaPopup() {
+    if (omegaPopup && !omegaPopup.closed) {
+      omegaPopup.focus();
+      setStatus('Popup already open', false);
+      return;
+    }
+    omegaPopup = window.open(OMEGA_URL, 'omegaPopup', 'width=1200,height=800,scrollbars=yes,resizable=yes');
+    if (omegaPopup) {
+      setStatus('Popup opened — log in and switch to Table view', false);
+    } else {
+      setStatus('Popup blocked — allow popups for this page', true);
+    }
+  }
+
+  // ── 6. Read Strategies from popup DOM ─────────────────────────────────────
   function setStatus(msg, isError) {
     var el = document.getElementById('omegaStatus');
     el.textContent = msg;
@@ -81,59 +82,82 @@
   }
 
   function readStrategies() {
+    // If no popup open, try opening one first
+    if (!omegaPopup || omegaPopup.closed) {
+      openOmegaPopup();
+      setStatus('Popup opened — wait for page to load, then click Read again', false);
+      return;
+    }
+
     var readBtn = document.getElementById('omegaReadBtn');
     readBtn.disabled = true;
     readBtn.textContent = 'Reading...';
-    setStatus('Fetching dashboard...', false);
+    setStatus('Waiting for table...', false);
 
-    fetch(OMEGA_URL, { credentials: 'include' })
-      .then(function(resp) {
-        if (!resp.ok) throw new Error('HTTP ' + resp.status);
-        return resp.text();
-      })
-      .then(function(html) {
-        setStatus('Parsing strategies...', false);
-        strategies = parseStrategiesFromHTML(html);
-        if (strategies.length === 0) {
-          // SPA: table not in initial HTML, try table view URL
-          setStatus('Table not in HTML, trying table view...', false);
-          return fetch(OMEGA_URL + '?view=table', { credentials: 'include' })
-            .then(function(r) { return r.text(); })
-            .then(function(html2) {
-              strategies = parseStrategiesFromHTML(html2);
-            });
+    // First try to click "Table" view in the popup
+    try {
+      clickTableView(omegaPopup.document);
+    } catch(e) {
+      // cross-origin or not loaded yet — will retry
+    }
+
+    // Poll for tbody to appear (SPA needs time to render)
+    var attempts = 0;
+    var maxAttempts = 15;
+    var pollInterval = setInterval(function() {
+      attempts++;
+      try {
+        var doc = omegaPopup.document;
+        var tbody = doc.querySelector('tbody');
+        if (tbody && tbody.children.length > 0) {
+          clearInterval(pollInterval);
+          var html = '<table><tbody>' + tbody.innerHTML + '</tbody></table>';
+          strategies = parseStrategiesFromHTML(html);
+          if (strategies.length > 0) {
+            setStatus(strategies.length + ' strategies found', false);
+            renderStrategyTable();
+          } else {
+            setStatus('Table found but parsing failed — check table format', true);
+          }
+          readBtn.disabled = false;
+          readBtn.textContent = 'Read Strategies';
+          return;
         }
-      })
-      .then(function() {
-        if (strategies.length > 0) {
-          setStatus(strategies.length + ' strategies found', false);
-          renderStrategyTable();
-        } else {
-          setStatus('No strategies found — see instructions below', true);
-          showManualFallback();
-        }
-      })
-      .catch(function(err) {
-        var msg = err.message || String(err);
-        if (msg.indexOf('Failed to fetch') >= 0 || msg.indexOf('NetworkError') >= 0) {
-          setStatus('CORS blocked — use local launcher or paste HTML below', true);
-          showManualFallback();
-        } else {
-          setStatus('Error: ' + msg, true);
-          showManualFallback();
-        }
-      })
-      .finally(function() {
+        setStatus('Waiting for table... (' + attempts + '/' + maxAttempts + ')', false);
+      } catch(e) {
+        clearInterval(pollInterval);
+        setStatus('Cannot access popup: ' + e.message, true);
+        showFallbackInstructions();
         readBtn.disabled = false;
         readBtn.textContent = 'Read Strategies';
-      });
+        return;
+      }
+      if (attempts >= maxAttempts) {
+        clearInterval(pollInterval);
+        setStatus('Table not found — make sure you are on Table view', true);
+        showFallbackInstructions();
+        readBtn.disabled = false;
+        readBtn.textContent = 'Read Strategies';
+      }
+    }, 1000);
   }
 
-  // ── 6. Parse HTML table (same logic as Delphi uOmegaDownloader) ───────────
+  // ── 7. Click "Table" view button in popup ─────────────────────────────────
+  function clickTableView(doc) {
+    try {
+      var result = doc.evaluate("//span[text()='Table']", doc, null,
+        XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+      if (result) {
+        var parent = result.parentElement;
+        if (parent) parent.click(); else result.click();
+      }
+    } catch(e) {}
+  }
+
+  // ── 8. Parse HTML table (same logic as Delphi uOmegaDownloader) ───────────
   function parseStrategiesFromHTML(html) {
     var results = [];
 
-    // Try to find tbody content
     var tbodyMatch = html.match(/<tbody[^>]*>([\s\S]*?)<\/tbody>/i);
     if (!tbodyMatch) return results;
 
@@ -170,7 +194,7 @@
         strat.name = stripHTML(lm[3]).trim();
       }
 
-      // Tags (badges with rounded-full class) — search in first 2 cells
+      // Tags (badges)
       var tagSource = (cells[0] || '') + (cells[1] || '');
       var bm;
       badgeRe.lastIndex = 0;
@@ -190,7 +214,7 @@
         strat.backtestEnd = dm[2];
       }
 
-      // Numeric columns (try from cell index 4 or 5 onwards)
+      // Numeric columns
       var numStart = dm && (cells[3] || '').match(dateRe) ? 4 : 5;
       var nums = [];
       for (var i = numStart; i < cells.length; i++) {
@@ -224,7 +248,7 @@
     return negative ? -Math.abs(val) : val;
   }
 
-  // ── 7. Render strategy table ──────────────────────────────────────────────
+  // ── 9. Render strategy table ──────────────────────────────────────────────
   function renderStrategyTable() {
     var el = document.getElementById('omegaStrategies');
     var html = '<table class="tbl" style="width:100%;font-size:12px;">' +
@@ -251,7 +275,7 @@
         '<td style="font-size:10px;">' + s.tags.map(function(t) {
           return '<span style="background:var(--s3);padding:2px 6px;border-radius:10px;margin-right:3px;">' + escH(t) + '</span>';
         }).join('') + '</td>' +
-        '<td style="font-size:10px;">' + escH(s.backtestStart) + ' — ' + escH(s.backtestEnd) + '</td>' +
+        '<td style="font-size:10px;">' + escH(s.backtestStart) + ' &mdash; ' + escH(s.backtestEnd) + '</td>' +
         '<td style="text-align:right;color:' + plColor + ';">$' + fmtN(s.profitLoss) + '</td>' +
         '<td style="text-align:right;">$' + fmtN(s.avgTrade) + '</td>' +
         '<td style="text-align:right;">' + s.winRate.toFixed(1) + '%</td>' +
@@ -276,17 +300,18 @@
     return n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
   }
 
-  // ── 8. Manual fallback (paste HTML) ───────────────────────────────────────
-  function showManualFallback() {
+  // ── 10. Fallback instructions ─────────────────────────────────────────────
+  function showFallbackInstructions() {
     var el = document.getElementById('omegaStrategies');
     el.innerHTML =
-      '<div style="color:var(--muted);font-size:12px;margin-bottom:12px;">' +
-        'Automatic fetch failed. You can paste the table HTML manually:<br>' +
-        '<span style="font-size:11px;">Open Option Omega &rarr; Table view &rarr; Right-click the table &rarr; Inspect &rarr; Copy the <code>&lt;tbody&gt;</code> HTML</span>' +
+      '<div style="color:var(--gold);font-size:12px;margin-bottom:12px;">' +
+        '<b>Cannot access popup DOM</b><br>' +
+        'Make sure you launched the app with <code>Run_TradeAnalyzer.bat</code> (Chrome with CORS disabled).<br>' +
+        'Alternatively, paste the table HTML below:' +
       '</div>' +
       '<textarea id="omegaPasteArea" style="width:100%;height:120px;background:var(--s2);color:var(--text);border:1px solid var(--border);' +
         'border-radius:8px;padding:10px;font-family:\'Space Mono\',monospace;font-size:11px;resize:vertical;" ' +
-        'placeholder="Paste <tbody>...</tbody> HTML here"></textarea>' +
+        'placeholder="In Option Omega Table view: right-click table → Inspect → copy <tbody> HTML → paste here"></textarea>' +
       '<div style="margin-top:8px;">' +
         '<button class="btn-back" id="omegaParseBtn" style="border-color:var(--accent);color:var(--accent);">Parse Pasted HTML</button>' +
       '</div>';
@@ -294,11 +319,10 @@
     document.getElementById('omegaParseBtn').addEventListener('click', function() {
       var raw = document.getElementById('omegaPasteArea').value.trim();
       if (!raw) return;
-      // Wrap in tbody if not present
       if (raw.indexOf('<tbody') < 0) raw = '<tbody>' + raw + '</tbody>';
       strategies = parseStrategiesFromHTML('<table>' + raw + '</table>');
       if (strategies.length > 0) {
-        setStatus(strategies.length + ' strategies parsed from pasted HTML', false);
+        setStatus(strategies.length + ' strategies parsed', false);
         renderStrategyTable();
       } else {
         setStatus('No strategies found in pasted HTML', true);
