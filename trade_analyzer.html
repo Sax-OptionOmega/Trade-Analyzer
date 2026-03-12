@@ -703,23 +703,22 @@ input[type=range].zslider::-webkit-slider-thumb {
       <div class="card-body">
         <div class="opt-controls">
           <div class="opt-field">
-            <label>Start Date</label>
-            <input type="date" class="opt-input" id="optStartDate" style="width:140px">
+            <label>End Date</label>
+            <input type="date" class="opt-input" id="optEndDate" style="width:140px" onchange="applyQuickRange()">
           </div>
-          <input type="hidden" id="optEndDate">
           <div class="opt-field">
-            <label>+ Months</label>
+            <label>Months Back</label>
             <select class="opt-select" id="optQuickRange" onchange="applyQuickRange()">
-              <option value="">—</option>
-              <option value="1">+1</option>
-              <option value="2">+2</option>
-              <option value="3">+3</option>
-              <option value="6" selected>+6</option>
-              <option value="9">+9</option>
-              <option value="12">+12</option>
-              <option value="24">+24</option>
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="6" selected>6</option>
+              <option value="9">9</option>
+              <option value="12">12</option>
+              <option value="24">24</option>
             </select>
           </div>
+          <input type="hidden" id="optStartDate">
           <div class="opt-field">
             <label>Max Strategies</label>
             <input type="number" class="opt-input" id="optMaxStrats" min="2" max="15" value="6" style="width:70px">
@@ -3405,40 +3404,30 @@ function initOptimizerDates() {
   if (!base.trades || !base.trades.length) return;
   const allMonths = getAllMonthKeys(base.trades);
   if (!allMonths.length) return;
-  const startEl = document.getElementById('optStartDate');
   const endEl = document.getElementById('optEndDate');
-  // Set start to first month of data if empty
-  if (!startEl.value) startEl.value = allMonths[0] + '-01';
-  // Set end date: use quick range if selected, otherwise last month
+  // Set end date to last month of data if empty
   if (!endEl.value) {
-    const sel = document.getElementById('optQuickRange').value;
-    if (sel) {
-      applyQuickRange();
-    } else {
-      const last = allMonths[allMonths.length - 1];
-      const [y, m] = last.split('-').map(Number);
-      const lastDay = new Date(y, m, 0).getDate();
-      endEl.value = last + '-' + String(lastDay).padStart(2, '0');
-    }
+    const last = allMonths[allMonths.length - 1];
+    const [y, m] = last.split('-').map(Number);
+    const lastDay = new Date(y, m, 0).getDate();
+    endEl.value = last + '-' + String(lastDay).padStart(2, '0');
   }
+  applyQuickRange();
 }
 
 function applyQuickRange() {
-  const sel = document.getElementById('optQuickRange').value;
-  if (!sel) return;
-
-  const startEl = document.getElementById('optStartDate');
   const endEl = document.getElementById('optEndDate');
-  if (!startEl.value) return; // need a start date first
+  const startEl = document.getElementById('optStartDate');
+  const sel = document.getElementById('optQuickRange').value;
+  if (!endEl.value || !sel) return;
 
-  // Parse start date and add N months
-  const [y, m, d] = startEl.value.split('-').map(Number);
+  // Parse end date and go back N months
+  const [y, m, d] = endEl.value.split('-').map(Number);
   const months = parseInt(sel);
-  const endDate = new Date(y, m - 1 + months, 0); // last day of target month
-  const ey = endDate.getFullYear();
-  const em = String(endDate.getMonth() + 1).padStart(2, '0');
-  const ed = String(endDate.getDate()).padStart(2, '0');
-  endEl.value = `${ey}-${em}-${ed}`;
+  const startDate = new Date(y, m - 1 - months, 1); // first day, N months back
+  const sy = startDate.getFullYear();
+  const sm = String(startDate.getMonth() + 1).padStart(2, '0');
+  startEl.value = sy + '-' + sm + '-01';
 }
 function buildMonthlyPLByStrategy(trades, strategies) {
   // Returns { strategyName: { "YYYY-MM": totalPL, ... }, ... }
@@ -3544,13 +3533,14 @@ function runOptimizer() {
   const status = document.getElementById('optStatus');
   const resultsWrap = document.getElementById('optResultsWrap');
 
+  applyQuickRange(); // ensure start date is computed from end date + months back
   const optStart = document.getElementById('optStartDate').value;
   const optEnd = document.getElementById('optEndDate').value;
   const maxStrats = Math.min(parseInt(document.getElementById('optMaxStrats').value) || 6, strategies.length);
   const maxSize = parseInt(document.getElementById('optMaxSize').value) || 1;
   const topN = parseInt(document.getElementById('optTopN').value) || 5;
 
-  if (!optStart || !optEnd) { status.textContent = 'Please select both Start Date and End Date.'; return; }
+  if (!optStart || !optEnd) { status.textContent = 'Please select End Date.'; return; }
   if (optStart > optEnd) { status.textContent = 'Start Date must be before End Date.'; return; }
   if (strategies.length < 2) { status.textContent = 'Need at least 2 strategies.'; return; }
 
