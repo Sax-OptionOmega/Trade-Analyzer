@@ -487,6 +487,7 @@ input[type=range].zslider::-webkit-slider-thumb {
     <div class="tab" data-tab="trades">Trade Log</div>
     <div class="tab" data-tab="optimizer">Optimizer</div>
     <div class="tab" data-tab="ai">AI Analysis</div>
+    <div class="tab" data-tab="omega">Option Omega</div>
   </div>
 
   <!-- ── TAB: PORTFOLIO ── -->
@@ -952,6 +953,24 @@ input[type=range].zslider::-webkit-slider-thumb {
     <div class="ai-output card-body" id="aiOutput"></div>
 
   </div>
+
+  <!-- ── TAB: OPTION OMEGA ── -->
+  <div class="tab-content" id="tab-omega">
+    <div class="sec">Option Omega Dashboard</div>
+    <div class="card" style="height:calc(100vh - 200px);min-height:600px;">
+      <div class="card-hdr">
+        <span>Option Omega — Tests</span>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <button class="btn-back" onclick="document.getElementById('omegaFrame').src='https://optionomega.com/dashboard/tests'">Reload</button>
+          <button class="btn-back" onclick="window.open('https://optionomega.com/dashboard/tests','_blank')">Open in New Tab</button>
+        </div>
+      </div>
+      <div class="card-body" style="padding:0;height:calc(100% - 44px);">
+        <iframe id="omegaFrame" src="about:blank" style="width:100%;height:100%;border:none;border-radius:0 0 10px 10px;background:#fff;"></iframe>
+      </div>
+    </div>
+  </div>
+
 </div></div><!-- /zoomWrap -->
 
 <!-- ZOOM WIDGET (visible only in main screen) -->
@@ -2649,6 +2668,10 @@ function switchTab(id) {
   if(id==='trades') renderTradeLog();
   if(id==='detail') { renderDetail(); }
   if(id==='optimizer') { initOptimizerDates(); }
+  if(id==='omega') {
+    var f = document.getElementById('omegaFrame');
+    if(!f.src || f.src === 'about:blank') f.src = 'https://optionomega.com/dashboard/tests';
+  }
 }
 document.getElementById('tabs').addEventListener('click',e=>{
   if(e.target.classList.contains('tab')) switchTab(e.target.dataset.tab);
