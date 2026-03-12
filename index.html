@@ -703,16 +703,12 @@ input[type=range].zslider::-webkit-slider-thumb {
       <div class="card-body">
         <div class="opt-controls">
           <div class="opt-field">
-            <label>Optimization Window</label>
-            <select class="opt-select" id="optWindow">
-              <option value="3">Last 3 months</option>
-              <option value="6" selected>Last 6 months</option>
-              <option value="9">Last 9 months</option>
-              <option value="12">Last 12 months</option>
-              <option value="18">Last 18 months</option>
-              <option value="24">Last 24 months</option>
-              <option value="36">Last 36 months</option>
-            </select>
+            <label>Start Date</label>
+            <input type="date" class="opt-input" id="optStartDate" style="width:140px">
+          </div>
+          <div class="opt-field">
+            <label>End Date</label>
+            <input type="date" class="opt-input" id="optEndDate" style="width:140px">
           </div>
           <div class="opt-field">
             <label>Max Strategies</label>
@@ -2555,7 +2551,7 @@ function switchTab(id) {
   if(id==='vix') renderVIX();
   if(id==='trades') renderTradeLog();
   if(id==='detail') { renderDetail(); }
-  if(id==='optimizer') { /* no auto-render, user clicks Run */ }
+  if(id==='optimizer') { initOptimizerDates(); }
 }
 document.getElementById('tabs').addEventListener('click',e=>{
   if(e.target.classList.contains('tab')) switchTab(e.target.dataset.tab);
@@ -3310,6 +3306,24 @@ Struttura la risposta con sezioni chiare. Sii diretto e pratico, as a profession
 }
 
 // ── ROLLING WINDOW PORTFOLIO OPTIMIZER ─────────────────────────────────────────
+
+function initOptimizerDates() {
+  const base = window._G || G;
+  if (!base.trades || !base.trades.length) return;
+  const allMonths = getAllMonthKeys(base.trades);
+  if (!allMonths.length) return;
+  const startEl = document.getElementById('optStartDate');
+  const endEl = document.getElementById('optEndDate');
+  // Only set defaults if not already filled by user
+  if (!startEl.value) startEl.value = allMonths[0] + '-01';
+  if (!endEl.value) {
+    // Last month: parse "YYYY-MM" and get last day
+    const last = allMonths[allMonths.length - 1];
+    const [y, m] = last.split('-').map(Number);
+    const lastDay = new Date(y, m, 0).getDate();
+    endEl.value = last + '-' + String(lastDay).padStart(2, '0');
+  }
+}
 function buildMonthlyPLByStrategy(trades, strategies) {
   // Returns { strategyName: { "YYYY-MM": totalPL, ... }, ... }
   const result = {};
@@ -3392,12 +3406,18 @@ function runOptimizer() {
   const status = document.getElementById('optStatus');
   const resultsWrap = document.getElementById('optResultsWrap');
 
-  const windowMonths = parseInt(document.getElementById('optWindow').value);
+  const optStart = document.getElementById('optStartDate').value;
+  const optEnd = document.getElementById('optEndDate').value;
   const maxStrats = Math.min(parseInt(document.getElementById('optMaxStrats').value) || 6, strategies.length);
   const maxSize = parseInt(document.getElementById('optMaxSize').value) || 1;
   const topN = parseInt(document.getElementById('optTopN').value) || 5;
 
+  if (!optStart || !optEnd) { status.textContent = 'Please select both Start Date and End Date.'; return; }
+  if (optStart > optEnd) { status.textContent = 'Start Date must be before End Date.'; return; }
   if (strategies.length < 2) { status.textContent = 'Need at least 2 strategies.'; return; }
+
+  const startKey = optStart.slice(0, 7); // "YYYY-MM"
+  const endKey = optEnd.slice(0, 7);
 
   btn.disabled = true;
   status.textContent = 'Building monthly data...';
@@ -3414,10 +3434,14 @@ function runOptimizer() {
       return;
     }
 
-    const actualWindow = Math.min(windowMonths, allMonths.length);
-    const windowStart = allMonths.length - actualWindow;
-    const windowMonthKeys = allMonths.slice(windowStart);
-    const oosMonthKeys = allMonths.slice(0, windowStart);
+    const windowMonthKeys = allMonths.filter(m => m >= startKey && m <= endKey);
+    if (windowMonthKeys.length < 2) {
+      status.textContent = 'Selected date range contains less than 2 months of data.';
+      btn.disabled = false;
+      return;
+    }
+    const windowStart = allMonths.indexOf(windowMonthKeys[0]);
+    const oosMonthKeys = allMonths.filter(m => m < startKey || m > endKey);
 
     status.textContent = `Window: ${windowMonthKeys[0]} to ${windowMonthKeys[windowMonthKeys.length-1]} (${windowMonthKeys.length} months)`;
 
