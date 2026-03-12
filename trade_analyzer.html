@@ -703,24 +703,25 @@ input[type=range].zslider::-webkit-slider-thumb {
       <div class="card-body">
         <div class="opt-controls">
           <div class="opt-field">
-            <label>Quick Range</label>
-            <select class="opt-select" id="optQuickRange" onchange="applyQuickRange()">
-              <option value="">Custom</option>
-              <option value="1">Last 1 month</option>
-              <option value="3">Last 3 months</option>
-              <option value="6" selected>Last 6 months</option>
-              <option value="12">Last 12 months</option>
-              <option value="24">Last 24 months</option>
-              <option value="all">All data</option>
-            </select>
-          </div>
-          <div class="opt-field">
             <label>Start Date</label>
-            <input type="date" class="opt-input" id="optStartDate" style="width:140px" onchange="document.getElementById('optQuickRange').value=''">
+            <input type="date" class="opt-input" id="optStartDate" style="width:140px">
           </div>
           <div class="opt-field">
             <label>End Date</label>
-            <input type="date" class="opt-input" id="optEndDate" style="width:140px" onchange="document.getElementById('optQuickRange').value=''">
+            <input type="date" class="opt-input" id="optEndDate" style="width:140px">
+          </div>
+          <div class="opt-field">
+            <label>+ Months</label>
+            <select class="opt-select" id="optQuickRange" onchange="applyQuickRange()">
+              <option value="">—</option>
+              <option value="1">+1</option>
+              <option value="2">+2</option>
+              <option value="3">+3</option>
+              <option value="6" selected>+6</option>
+              <option value="9">+9</option>
+              <option value="12">+12</option>
+              <option value="24">+24</option>
+            </select>
           </div>
           <div class="opt-field">
             <label>Max Strategies</label>
@@ -3335,38 +3336,40 @@ function initOptimizerDates() {
   if (!base.trades || !base.trades.length) return;
   const allMonths = getAllMonthKeys(base.trades);
   if (!allMonths.length) return;
-  // Store for quick range use
-  window._optAllMonthsCache = allMonths;
-  // Apply default quick range (6 months) on first load
   const startEl = document.getElementById('optStartDate');
-  if (!startEl.value) applyQuickRange();
+  const endEl = document.getElementById('optEndDate');
+  // Set start to first month of data if empty
+  if (!startEl.value) startEl.value = allMonths[0] + '-01';
+  // Set end date: use quick range if selected, otherwise last month
+  if (!endEl.value) {
+    const sel = document.getElementById('optQuickRange').value;
+    if (sel) {
+      applyQuickRange();
+    } else {
+      const last = allMonths[allMonths.length - 1];
+      const [y, m] = last.split('-').map(Number);
+      const lastDay = new Date(y, m, 0).getDate();
+      endEl.value = last + '-' + String(lastDay).padStart(2, '0');
+    }
+  }
 }
 
 function applyQuickRange() {
-  const base = window._G || G;
-  if (!base.trades || !base.trades.length) return;
-  const allMonths = window._optAllMonthsCache || getAllMonthKeys(base.trades);
-  if (!allMonths.length) return;
-
   const sel = document.getElementById('optQuickRange').value;
-  if (!sel) return; // "Custom" selected, don't touch dates
+  if (!sel) return;
 
   const startEl = document.getElementById('optStartDate');
   const endEl = document.getElementById('optEndDate');
+  if (!startEl.value) return; // need a start date first
 
-  // End date = last day of last month in data
-  const last = allMonths[allMonths.length - 1];
-  const [ey, em] = last.split('-').map(Number);
-  const lastDay = new Date(ey, em, 0).getDate();
-  endEl.value = last + '-' + String(lastDay).padStart(2, '0');
-
-  if (sel === 'all') {
-    startEl.value = allMonths[0] + '-01';
-  } else {
-    const months = parseInt(sel);
-    const idx = Math.max(0, allMonths.length - months);
-    startEl.value = allMonths[idx] + '-01';
-  }
+  // Parse start date and add N months
+  const [y, m, d] = startEl.value.split('-').map(Number);
+  const months = parseInt(sel);
+  const endDate = new Date(y, m - 1 + months, 0); // last day of target month
+  const ey = endDate.getFullYear();
+  const em = String(endDate.getMonth() + 1).padStart(2, '0');
+  const ed = String(endDate.getDate()).padStart(2, '0');
+  endEl.value = `${ey}-${em}-${ed}`;
 }
 function buildMonthlyPLByStrategy(trades, strategies) {
   // Returns { strategyName: { "YYYY-MM": totalPL, ... }, ... }
