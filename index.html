@@ -763,10 +763,66 @@ input[type=range].zslider::-webkit-slider-thumb {
             <span class="opt-status" id="optStatus"></span>
           </div>
         </div>
-        <div style="font-size:11px;color:var(--muted);line-height:1.6">
+        <div style="font-size:11px;color:var(--muted);line-height:1.6;margin-bottom:12px">
           Evaluates all combinations of strategies (with size multipliers) on the selected window,
           then shows the <strong style="color:var(--gold)">full historical equity curve</strong> for each top portfolio &mdash;
           out-of-sample validation at a glance.
+        </div>
+        <div style="border-top:1px solid var(--border);padding-top:12px">
+          <div style="font-size:11px;color:var(--gold);font-weight:600;margin-bottom:8px;letter-spacing:1px">WALK-FORWARD BACKTEST</div>
+          <div class="opt-controls">
+            <div class="opt-field">
+              <label>Train (months)</label>
+              <input type="number" class="opt-input" id="wfTrain" min="2" max="60" value="6" style="width:70px">
+            </div>
+            <div class="opt-field">
+              <label>Test (months)</label>
+              <input type="number" class="opt-input" id="wfTest" min="1" max="24" value="3" style="width:70px">
+            </div>
+            <div class="opt-field">
+              <label>&nbsp;</label>
+              <button class="opt-run" id="wfRunBtn" onclick="runWalkForward()" style="background:var(--gold);color:#000">Run Walk-Forward</button>
+            </div>
+            <div class="opt-field">
+              <label>&nbsp;</label>
+              <span class="opt-status" id="wfStatus"></span>
+            </div>
+          </div>
+          <div style="font-size:11px;color:var(--muted);line-height:1.6">
+            Simulates a rolling optimization: trains on <strong>Train</strong> months, trades the best portfolio for <strong>Test</strong> months,
+            then repeats from the end of each test window until all data is consumed. Uses the selected fitness function above.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Walk-Forward Results -->
+    <div id="wfResultsWrap" style="display:none">
+      <div class="sec">Walk-Forward Backtest Results <span id="wfCriteriaLabel" style="color:var(--gold)"></span></div>
+
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-body">
+          <div class="scroll-tbl" style="max-height:none">
+            <table class="tbl" id="wfStepsTbl">
+              <thead><tr>
+                <th>Step</th><th>Train Window</th><th>Test Window</th>
+                <th>Best Portfolio</th><th class="r">Train Score</th>
+                <th class="r">Test P&L</th><th class="r">Test Sharpe</th><th class="r">Test Win%</th>
+              </tr></thead>
+              <tbody id="wfStepsBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="g2">
+        <div>
+          <div class="sec">Walk-Forward Equity Curve (Out-of-Sample only)</div>
+          <div class="card"><div class="cw" style="position:relative"><canvas id="wfEqChart" height="280"></canvas></div></div>
+        </div>
+        <div>
+          <div class="sec">Walk-Forward Summary</div>
+          <div class="card"><div class="card-body" id="wfSummary" style="font-size:13px;line-height:2"></div></div>
         </div>
       </div>
     </div>
@@ -3862,6 +3918,247 @@ function loadOptPortfolio(idx) {
     const lp = document.getElementById('livePanel');
     if (lp) lp.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, 150);
+}
+
+// ── WALK-FORWARD BACKTEST ───────────────────────────────────────────────────────
+
+function runWalkForward() {
+  const base = window._G || G;
+  const trades = base.trades;
+  const strategies = base.strategies;
+  const btn = document.getElementById('wfRunBtn');
+  const status = document.getElementById('wfStatus');
+  const resultsWrap = document.getElementById('wfResultsWrap');
+
+  const trainLen = parseInt(document.getElementById('wfTrain').value) || 6;
+  const testLen = parseInt(document.getElementById('wfTest').value) || 3;
+  const maxStrats = Math.min(parseInt(document.getElementById('optMaxStrats').value) || 6, strategies.length);
+  const maxSize = parseInt(document.getElementById('optMaxSize').value) || 1;
+  const objective = document.getElementById('optObjective').value;
+  const objLabels = { sharpe:'Sharpe', equity:'Equity', winRate:'Win %', maxDD:'Min Max DD', pf:'Risk/Reward (PF)', r2:'R²' };
+
+  if (strategies.length < 2) { status.textContent = 'Need at least 2 strategies.'; return; }
+  if (trainLen < 2) { status.textContent = 'Train must be at least 2 months.'; return; }
+
+  btn.disabled = true;
+  status.textContent = 'Running walk-forward...';
+  resultsWrap.style.display = 'none';
+
+  function getScore(metrics) {
+    switch(objective) {
+      case 'equity':  return metrics.totalPL;
+      case 'winRate': return metrics.winRate;
+      case 'maxDD':   return metrics.maxDD;
+      case 'pf':      return metrics.pf;
+      case 'r2':      return metrics.r2;
+      default:        return metrics.sharpe;
+    }
+  }
+
+  requestAnimationFrame(() => {
+    const monthlyPLs = buildMonthlyPLByStrategy(trades, strategies);
+    const allMonths = getAllMonthKeys(trades);
+
+    if (allMonths.length < trainLen + testLen) {
+      status.textContent = `Not enough data: ${allMonths.length} months available, need at least ${trainLen + testLen}.`;
+      btn.disabled = false;
+      return;
+    }
+
+    const steps = [];
+    let cursor = 0;
+
+    while (cursor + trainLen < allMonths.length) {
+      const trainMonths = allMonths.slice(cursor, cursor + trainLen);
+      const testStart = cursor + trainLen;
+      const testEnd = Math.min(testStart + testLen, allMonths.length);
+      const testMonths = allMonths.slice(testStart, testEnd);
+
+      if (testMonths.length === 0) break;
+
+      // Find best portfolio on train window
+      let bestCombo = null, bestSizes = null, bestScore = -Infinity, bestTrainMetrics = null;
+
+      for (const combo of generateCombinations(strategies, 2, maxStrats)) {
+        if (maxSize === 1) {
+          const sizes = combo.map(() => 1);
+          const wm = evaluateMonthlyPL(monthlyPLs, combo, sizes, trainMonths);
+          if (wm) {
+            const score = getScore(wm);
+            if (score > bestScore) {
+              bestScore = score; bestCombo = [...combo]; bestSizes = [...sizes]; bestTrainMetrics = wm;
+            }
+          }
+        } else {
+          const k = combo.length;
+          const totalPerms = Math.pow(maxSize, k);
+          for (let p = 0; p < totalPerms; p++) {
+            const sizes = [];
+            let rem = p;
+            for (let j = 0; j < k; j++) { sizes.push((rem % maxSize) + 1); rem = Math.floor(rem / maxSize); }
+            const wm = evaluateMonthlyPL(monthlyPLs, combo, sizes, trainMonths);
+            if (wm) {
+              const score = getScore(wm);
+              if (score > bestScore) {
+                bestScore = score; bestCombo = [...combo]; bestSizes = [...sizes]; bestTrainMetrics = wm;
+              }
+            }
+          }
+        }
+      }
+
+      if (bestCombo) {
+        const testMetrics = evaluateMonthlyPL(monthlyPLs, bestCombo, bestSizes, testMonths);
+        // Collect monthly P&L for equity curve
+        const testPLs = testMonths.map(m => {
+          let sum = 0;
+          bestCombo.forEach((s, i) => { sum += (monthlyPLs[s][m] || 0) * bestSizes[i]; });
+          return sum;
+        });
+
+        steps.push({
+          trainRange: `${trainMonths[0]} → ${trainMonths[trainMonths.length-1]}`,
+          testRange: `${testMonths[0]} → ${testMonths[testMonths.length-1]}`,
+          combo: bestCombo, sizes: bestSizes,
+          trainScore: bestScore, trainMetrics: bestTrainMetrics,
+          testMetrics, testMonths, testPLs
+        });
+      }
+
+      cursor = testEnd; // advance past test window
+    }
+
+    btn.disabled = false;
+
+    if (!steps.length) {
+      status.textContent = 'No valid walk-forward steps could be completed.';
+      return;
+    }
+
+    status.textContent = `Completed ${steps.length} walk-forward steps.`;
+    renderWalkForwardResults(steps, allMonths, objLabels[objective] || 'Sharpe');
+  });
+}
+
+function renderWalkForwardResults(steps, allMonths, objLabel) {
+  const resultsWrap = document.getElementById('wfResultsWrap');
+  resultsWrap.style.display = 'block';
+
+  document.getElementById('wfCriteriaLabel').textContent =
+    `— ${steps.length} steps, optimized by ${objLabel}`;
+
+  // Steps table
+  const tbody = document.getElementById('wfStepsBody');
+  tbody.innerHTML = steps.map((s, i) => {
+    const comboStr = s.combo.map((c, j) => c + (s.sizes[j] > 1 ? ' ×' + s.sizes[j] : '')).join(', ');
+    const tm = s.testMetrics;
+    return `<tr>
+      <td>${i+1}</td>
+      <td style="font-size:11px">${s.trainRange}</td>
+      <td style="font-size:11px">${s.testRange}</td>
+      <td style="font-size:11px">${comboStr}</td>
+      <td class="r">${s.trainScore.toFixed(2)}</td>
+      <td class="r" style="color:${tm && tm.totalPL>=0?'var(--up)':'var(--dn)'}">${tm ? '$'+tm.totalPL.toFixed(0) : '—'}</td>
+      <td class="r">${tm ? tm.sharpe.toFixed(2) : '—'}</td>
+      <td class="r">${tm ? tm.winRate.toFixed(0)+'%' : '—'}</td>
+    </tr>`;
+  }).join('');
+
+  // Build combined OOS equity curve
+  const oosPLs = [];
+  const oosLabels = [];
+  steps.forEach(s => {
+    s.testMonths.forEach((m, i) => {
+      oosLabels.push(m);
+      oosPLs.push(s.testPLs[i]);
+    });
+  });
+
+  // Cumulative equity
+  const cumEquity = [];
+  let cum = 0;
+  oosPLs.forEach(v => { cum += v; cumEquity.push(cum); });
+
+  // Summary stats
+  const totalPL = cum;
+  const nMonths = oosPLs.length;
+  const mean = totalPL / nMonths;
+  const std = Math.sqrt(oosPLs.reduce((a,v) => a + (v - mean)**2, 0) / nMonths);
+  const sharpe = std > 0 ? (mean / std) * Math.sqrt(12) : 0;
+  let peak = 0, maxDD = 0;
+  cumEquity.forEach(v => { peak = Math.max(peak, v); maxDD = Math.min(maxDD, v - peak); });
+  const winMonths = oosPLs.filter(v => v > 0).length;
+  const winRate = nMonths > 0 ? (winMonths / nMonths * 100) : 0;
+
+  const summDiv = document.getElementById('wfSummary');
+  summDiv.innerHTML = `
+    <div><strong style="color:var(--gold)">Total OOS P&L:</strong> <span style="color:${totalPL>=0?'var(--up)':'var(--dn)'}">$${totalPL.toFixed(0)}</span></div>
+    <div><strong style="color:var(--gold)">OOS Months:</strong> ${nMonths}</div>
+    <div><strong style="color:var(--gold)">Sharpe (OOS):</strong> ${sharpe.toFixed(2)}</div>
+    <div><strong style="color:var(--gold)">Max DD (OOS):</strong> <span style="color:var(--dn)">$${maxDD.toFixed(0)}</span></div>
+    <div><strong style="color:var(--gold)">Win Rate (OOS):</strong> ${winRate.toFixed(0)}%</div>
+    <div><strong style="color:var(--gold)">Avg Monthly P&L:</strong> <span style="color:${mean>=0?'var(--up)':'var(--dn)'}">$${mean.toFixed(0)}</span></div>
+    <div><strong style="color:var(--gold)">Walk-Forward Steps:</strong> ${steps.length}</div>
+  `;
+
+  // Draw equity chart
+  drawWalkForwardEquity(oosLabels, cumEquity, steps);
+}
+
+function drawWalkForwardEquity(labels, cumEquity, steps) {
+  const canvas = document.getElementById('wfEqChart');
+  const ctx = canvas.getContext('2d');
+  if (window._wfEqChartInstance) window._wfEqChartInstance.destroy();
+
+  // Build step boundary annotations (alternating background)
+  const stepBGs = [];
+  let idx = 0;
+  steps.forEach((s, si) => {
+    const start = idx;
+    idx += s.testMonths.length;
+    if (si % 2 === 1) {
+      stepBGs.push({ start, end: idx - 1 });
+    }
+  });
+
+  // Color array: green when equity rising, red when in drawdown
+  const colors = cumEquity.map((v, i) => {
+    if (i === 0) return v >= 0 ? 'rgba(0,212,170,0.8)' : 'rgba(255,82,82,0.8)';
+    return v >= cumEquity[i-1] ? 'rgba(0,212,170,0.8)' : 'rgba(255,82,82,0.8)';
+  });
+
+  window._wfEqChartInstance = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Walk-Forward Equity (OOS)',
+        data: cumEquity,
+        borderColor: 'rgba(0,212,170,1)',
+        backgroundColor: 'rgba(0,212,170,0.1)',
+        fill: true,
+        borderWidth: 2,
+        pointRadius: 0,
+        tension: 0.3
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: true, labels: { color: '#ccc', font: { size: 11 } } },
+        tooltip: {
+          callbacks: {
+            label: ctx => `$${ctx.parsed.y.toFixed(0)}`
+          }
+        }
+      },
+      scales: {
+        x: { ticks: { color: '#999', font: { size: 10 }, maxRotation: 45 }, grid: { color: 'rgba(255,255,255,0.05)' } },
+        y: { ticks: { color: '#999', callback: v => '$' + v.toLocaleString() }, grid: { color: 'rgba(255,255,255,0.08)' } }
+      }
+    }
+  });
 }
 
 // ── ZOOM ──────────────────────────────────────────────────────────────────────
