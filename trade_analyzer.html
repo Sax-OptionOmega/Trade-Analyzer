@@ -4063,7 +4063,7 @@ function runWalkForward() {
       });
     }
 
-    cursor = testEnd;
+    cursor += testLen; // slide by test length, train window overlaps
     // Yield to browser for UI update, then process next step
     setTimeout(processStep, 0);
   }
