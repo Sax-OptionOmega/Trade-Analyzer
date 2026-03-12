@@ -4143,8 +4143,8 @@ function renderWalkForwardResults(steps, oosLabels, oosPLs, cumEquity, tradeEqui
       '<td style="font-size:11px">' + s.testRange + '</td>' +
       '<td style="font-size:11px">' + comboStr + '</td>' +
       '<td class="r">' + s.trainScore.toFixed(2) + '</td>' +
-      '<td class="r" style="color:' + (testPL>=0?'var(--up)':'var(--dn)') + '">$' + testPL.toFixed(0) + '</td>' +
-      '<td class="r" style="color:' + (cumPL>=0?'var(--up)':'var(--dn)') + '">$' + cumPL.toFixed(0) + '</td>' +
+      '<td class="r" style="color:' + (testPL>=0?'var(--accent)':'var(--red)') + '">$' + testPL.toFixed(0) + '</td>' +
+      '<td class="r" style="color:' + (cumPL>=0?'var(--accent)':'var(--red)') + '">$' + cumPL.toFixed(0) + '</td>' +
       '</tr>';
   }
   tbody.innerHTML = rows;
@@ -4214,7 +4214,7 @@ function renderWalkForwardResults(steps, oosLabels, oosPLs, cumEquity, tradeEqui
   });
 
   var f$ = function(v) { return (v >= 0 ? '' : '-') + '$' + Math.abs(Math.round(v)).toLocaleString(); };
-  var cv = function(v) { return v >= 0 ? 'var(--up)' : 'var(--dn)'; };
+  var cv = function(v) { return v >= 0 ? 'var(--accent)' : 'var(--red)'; };
 
   function statRow(label, value, color) {
     return '<tr><td style="color:var(--gold);padding:3px 12px 3px 0;white-space:nowrap">' + label + '</td>' +
@@ -4225,18 +4225,18 @@ function renderWalkForwardResults(steps, oosLabels, oosPLs, cumEquity, tradeEqui
     '<table style="width:100%;font-size:12px;border-collapse:collapse">' +
     statRow('Total P&L', f$(totalPL), cv(totalPL)) +
     statRow('Trades', nTrades + ' (' + wins.length + 'W / ' + losses.length + 'L)', '') +
-    statRow('Win Rate', winRate.toFixed(1) + '%', winRate >= 50 ? 'var(--up)' : 'var(--dn)') +
-    statRow('Profit Factor', profitFactor.toFixed(2), profitFactor >= 1 ? 'var(--up)' : 'var(--dn)') +
+    statRow('Win Rate', winRate.toFixed(1) + '%', winRate >= 50 ? 'var(--accent)' : 'var(--red)') +
+    statRow('Profit Factor', profitFactor.toFixed(2), profitFactor >= 1 ? 'var(--accent)' : 'var(--red)') +
     statRow('Avg Trade', f$(avgTrade), cv(avgTrade)) +
-    statRow('Avg Win', f$(avgWin), 'var(--up)') +
-    statRow('Avg Loss', f$(avgLoss), 'var(--dn)') +
-    statRow('Max Drawdown', f$(maxDD), 'var(--dn)') +
-    statRow('Sharpe (ann.)', sharpe.toFixed(2), sharpe >= 1 ? 'var(--up)' : 'var(--dn)') +
-    statRow('Sortino (ann.)', sortino.toFixed(2), sortino >= 1 ? 'var(--up)' : 'var(--dn)') +
-    statRow('Calmar', calmar.toFixed(2), calmar >= 1 ? 'var(--up)' : 'var(--dn)') +
-    statRow('R\u00B2 (equity)', r2.toFixed(3), r2 >= 0.9 ? 'var(--up)' : r2 >= 0.7 ? 'var(--gold)' : 'var(--dn)') +
-    statRow('Max Consec. Win', maxConsW, 'var(--up)') +
-    statRow('Max Consec. Loss', maxConsL, 'var(--dn)') +
+    statRow('Avg Win', f$(avgWin), 'var(--accent)') +
+    statRow('Avg Loss', f$(avgLoss), 'var(--red)') +
+    statRow('Max Drawdown', f$(maxDD), 'var(--red)') +
+    statRow('Sharpe (ann.)', sharpe.toFixed(2), sharpe >= 1 ? 'var(--accent)' : 'var(--red)') +
+    statRow('Sortino (ann.)', sortino.toFixed(2), sortino >= 1 ? 'var(--accent)' : 'var(--red)') +
+    statRow('Calmar', calmar.toFixed(2), calmar >= 1 ? 'var(--accent)' : 'var(--red)') +
+    statRow('R\u00B2 (equity)', r2.toFixed(3), r2 >= 0.9 ? 'var(--accent)' : r2 >= 0.7 ? 'var(--gold)' : 'var(--red)') +
+    statRow('Max Consec. Win', maxConsW, 'var(--accent)') +
+    statRow('Max Consec. Loss', maxConsL, 'var(--red)') +
     statRow('Avg Monthly P&L', f$(meanM), cv(meanM)) +
     statRow('WF Steps', steps.length, '') +
     '</table>';
@@ -4267,14 +4267,14 @@ function renderWalkForwardResults(steps, oosLabels, oosPLs, cumEquity, tradeEqui
       var v = yrData[mo];
       if (v !== undefined) {
         yrTotal += v; yrCount++;
-        mRows += '<td class="r" style="color:' + (v >= 0 ? 'var(--up)' : 'var(--dn)') + ';padding:4px 6px">' + fmtCell(v) + '</td>';
+        mRows += '<td class="r" style="color:' + (v >= 0 ? 'var(--accent)' : 'var(--red)') + ';padding:4px 6px">' + fmtCell(v) + '</td>';
       } else {
         mRows += '<td class="r" style="color:rgba(255,255,255,0.15);padding:4px 6px">—</td>';
       }
     }
     var avgMo = yrCount > 0 ? yrTotal / yrCount : 0;
-    mRows += '<td class="r" style="color:' + (yrTotal >= 0 ? 'var(--up)' : 'var(--dn)') + ';font-weight:700;padding:4px 6px;border-left:1px solid var(--border)">' + fmtCell(yrTotal) + '</td>';
-    mRows += '<td class="r" style="color:' + (avgMo >= 0 ? 'var(--up)' : 'var(--dn)') + ';padding:4px 6px">' + fmtCell(avgMo) + '</td>';
+    mRows += '<td class="r" style="color:#fff;font-weight:700;padding:4px 6px;border-left:1px solid var(--border)">' + fmtCell(yrTotal) + '</td>';
+    mRows += '<td class="r" style="color:#fff;padding:4px 6px">' + fmtCell(avgMo) + '</td>';
     mRows += '</tr>';
   }
   mBody.innerHTML = mRows;
