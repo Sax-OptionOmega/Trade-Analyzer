@@ -46,8 +46,11 @@ Built by a retail trader, for retail traders.
 
 ### 🔬 Rolling Window Portfolio Optimizer
 - **End Date + Months Back**: select an end date and a free-form look-back period (any number of months) to define the optimization window
-- **6 fitness functions**: Sharpe, Equity (Total P&L), Win %, Min Max DD, Risk/Reward (Profit Factor), R² (equity linearity)
-- **Min Trades filter**: skip combinations with fewer than N trades in the window (default 20) to reduce overfitting from statistically insignificant samples
+- **8 fitness functions**: Sharpe, Equity (Total P&L), Win %, Min Max DD, Risk/Reward (Profit Factor), R² (equity linearity), Expectancy (Win% × Avg Win/Loss), Win% Trend (penalizes recent decay)
+- **Smart pre-filtering**: strategies are individually evaluated — those below the **Min Fitness** threshold or with too few trades are eliminated before combination search
+- **Scan Fitness button**: instantly shows every strategy's individual fitness score with min/avg/median/max stats, so you can calibrate the Min Fitness threshold before running
+- **Min Trades filter**: skip strategies with fewer than N trades in the window (default 20) to reduce overfitting
+- **Min/Max Strategies**: set portfolio size bounds (min can be 0 — if all strategies are below threshold, the period is skipped)
 - Brute-force evaluation of all strategy combinations and size allocations
 - Ranked results with full metrics: Calmar, Sortino, Profit Factor, Win Rate, Max DD
 - **Out-of-sample validation**: metrics computed on data outside the optimization window
@@ -55,13 +58,18 @@ Built by a retail trader, for retail traders.
 - Configurable: max strategies per portfolio, max size multiplier, number of top results
 
 ### 🔄 Walk-Forward Backtest
-- **Sliding window optimization**: trains on N months, trades the best portfolio for M months, then slides forward and repeats until end of data
-- Uses the same fitness function selected for the optimizer
+- **Sliding window optimization**: trains on N months, trades the best portfolio for M days, then slides forward and repeats until end of data
+- **Dual resolution**: test period ≥ 28 days uses monthly windows; < 28 days automatically switches to weekly resolution for finer granularity
+- Uses the same fitness function and **pre-filtering** as the optimizer (Min Trades per strategy, Min Fitness threshold)
+- **Min Fitness regime filter**: if no strategy combination exceeds the Min Fitness threshold in a train window, the test period is skipped — the system stays flat until conditions improve
+- **Strategy selection frequency chart**: horizontal bar chart showing how often each strategy was selected across all WF steps
 - **Trade-level equity curve** with drawdown visualization — shows every individual trade, not monthly sums
-- Per-step detail table with train/test windows, selected portfolio, train score, test P&L, and cumulative P&L
+- Per-step detail table with train/test windows, selected portfolio, train score, test P&L, and cumulative P&L (skipped steps shown in muted style)
 - **Comprehensive OOS statistics**: Sharpe, Sortino, Calmar, R², Profit Factor, Win Rate, Max DD, Avg Trade, Avg Win/Loss, Max Consecutive Win/Loss
+- **Best/Worst month and week** statistics
 - **Monthly P&L heatmap**: year × month grid with green/red coloring, annual totals, and monthly averages
 - Progress bar with real-time step-by-step status updates
+- **Greedy fast path**: O(S×P) optimization for Win%/Win% Trend in weekly mode with size=1
 
 ### 🤖 AI-Powered Insights (Multi-Provider)
 - **4 AI providers supported**: Claude (Anthropic), GPT-4o (OpenAI), Gemini (Google), Groq
@@ -173,6 +181,10 @@ Exported CSV from **[Option Omega](https://optonomega.com)** with the following 
 ## Roadmap
 - [x] Rolling window portfolio optimizer with custom date range
 - [x] Walk-forward backtest with trade-level equity curve
+- [x] 8 fitness functions including Expectancy and Win% Trend
+- [x] Scan Fitness tool for threshold calibration
+- [x] Min Fitness regime filter (skip bad periods)
+- [x] Weekly resolution mode for short test periods
 - [ ] AI-powered strategy selection based on current market conditions
 - [ ] Strategy automation tools *(in development — [join waitlist](https://docs.google.com/forms/d/e/1FAIpQLSf-FkBSWFW1DuAekiaYs5b4AqVt9iBJBdW4V3c4rwdSP3IjFA/viewform?usp=header))*
 

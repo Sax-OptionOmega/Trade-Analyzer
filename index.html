@@ -713,20 +713,20 @@ input[type=range].zslider::-webkit-slider-thumb {
           <input type="hidden" id="optStartDate">
           <div class="opt-field">
             <label>Min Strategies</label>
-            <input type="number" class="opt-input" id="optMinStrats" min="2" max="15" value="2" style="width:70px">
+            <input type="number" class="opt-input" id="optMinStrats" min="0" max="15" value="0" style="width:70px">
           </div>
           <div class="opt-field">
             <label>Max Strategies</label>
-            <input type="number" class="opt-input" id="optMaxStrats" min="2" max="15" value="6" style="width:70px">
+            <input type="number" class="opt-input" id="optMaxStrats" min="1" max="15" value="10" style="width:70px">
           </div>
           <div class="opt-field">
             <label>Optimize For</label>
             <select class="opt-select" id="optObjective">
-              <option value="sharpe">Sharpe</option>
+              <option value="sharpe" selected>Sharpe</option>
               <option value="equity">Equity (Total P&L)</option>
               <option value="winRate">Win %</option>
               <option value="maxDD">Min Max DD</option>
-              <option value="pf" selected>Risk/Reward (PF)</option>
+              <option value="pf">Risk/Reward (PF)</option>
               <option value="r2">R² (Equity Linearity)</option>
               <option value="expectancy">Expectancy (Win% × Win/Loss)</option>
               <option value="winRateTrend">Win% Trend (penalizes decay)</option>
@@ -771,11 +771,19 @@ input[type=range].zslider::-webkit-slider-thumb {
           <div class="opt-controls">
             <div class="opt-field">
               <label>Train (months)</label>
-              <input type="number" class="opt-input" id="wfTrain" min="2" max="60" value="6" style="width:70px">
+              <input type="number" class="opt-input" id="wfTrain" min="2" max="60" value="2" style="width:70px">
             </div>
             <div class="opt-field">
               <label>Test (days)</label>
-              <input type="number" class="opt-input" id="wfTest" min="7" max="365" value="30" style="width:70px">
+              <input type="number" class="opt-input" id="wfTest" min="7" max="365" value="14" style="width:70px">
+            </div>
+            <div class="opt-field">
+              <label>Min Fitness</label>
+              <input type="number" class="opt-input" id="wfMinFitness" min="0" max="9999" value="1" step="0.1" style="width:70px" title="Minimum fitness score to trade. If best train score < this value, the test period is skipped (0 = disabled)">
+            </div>
+            <div class="opt-field">
+              <label>&nbsp;</label>
+              <button class="opt-run" onclick="scanFitness()" style="background:var(--muted);color:#fff;font-size:11px;padding:6px 12px">Scan Fitness</button>
             </div>
             <div class="opt-field">
               <label>&nbsp;</label>
@@ -786,6 +794,7 @@ input[type=range].zslider::-webkit-slider-thumb {
               <span class="opt-status" id="wfStatus"></span>
             </div>
           </div>
+          <div id="fitnessScanWrap" style="display:none;margin-top:8px"></div>
           <div id="wfProgressWrap" style="display:none;margin:8px 0">
             <div style="background:rgba(255,255,255,0.08);border-radius:4px;height:18px;overflow:hidden;position:relative">
               <div id="wfProgressBar" style="height:100%;background:var(--gold);border-radius:4px;transition:width 0.2s;width:0%"></div>
@@ -795,6 +804,7 @@ input[type=range].zslider::-webkit-slider-thumb {
           <div style="font-size:11px;color:var(--muted);line-height:1.6">
             Simulates a rolling optimization: trains on <strong>Train</strong> months, trades the best portfolio for <strong>Test</strong> days,
             then repeats. Test &ge; 28 days uses monthly periods; &lt; 28 days switches to weekly resolution. Uses the selected fitness function above.
+            <strong>Min Fitness</strong> &gt; 0: if the best train score is below this threshold, the test period is skipped (no trades).
           </div>
         </div>
       </div>
@@ -3628,8 +3638,8 @@ function runOptimizer() {
   applyQuickRange(); // ensure start date is computed from end date + months back
   const optStart = document.getElementById('optStartDate').value;
   const optEnd = document.getElementById('optEndDate').value;
-  const minStrats = Math.max(2, parseInt(document.getElementById('optMinStrats').value) || 2);
-  const maxStrats = Math.min(Math.max(minStrats, parseInt(document.getElementById('optMaxStrats').value) || 6), strategies.length);
+  const minStrats = Math.max(0, parseInt(document.getElementById('optMinStrats').value) || 0);
+  const maxStrats = Math.min(Math.max(minStrats, 1, parseInt(document.getElementById('optMaxStrats').value) || 6), strategies.length);
   const maxSize = parseInt(document.getElementById('optMaxSize').value) || 1;
   const topN = parseInt(document.getElementById('optTopN').value) || 5;
   const minTrades = parseInt(document.getElementById('optMinTrades').value) || 0;
@@ -3685,6 +3695,27 @@ function runOptimizer() {
       }
     }
 
+    // ── Pre-filter strategies individually (same logic as Walk-Forward) ──
+    const minFitness = parseFloat(document.getElementById('wfMinFitness').value) || 0;
+    var minTradesPerStrat = minTrades > 0 && maxStrats > 0 ? Math.max(1, Math.floor(minTrades / maxStrats)) : 0;
+    var eligible = [];
+    strategies.forEach(function(s) {
+      if (minTradesPerStrat > 0) {
+        var tc = 0;
+        windowMonthKeys.forEach(function(m) { tc += (tradeCounts[s][m] || 0); });
+        if (tc < minTradesPerStrat) return;
+      }
+      if (minFitness > 0) {
+        var indivMetrics = evaluateMonthlyPL(monthlyPLs, [s], [1], windowMonthKeys);
+        if (!indivMetrics) return;
+        var indivScore = getScore(indivMetrics);
+        if (indivScore < minFitness) return;
+      }
+      eligible.push(s);
+    });
+
+    status.textContent = `${eligible.length}/${strategies.length} strategies eligible. Evaluating combinations...`;
+
     // Enumerate all combinations — keep only top N in memory (bounded heap)
     let evaluated = 0;
     const heapSize = topN * 2; // keep 2x to allow dedup later
@@ -3693,10 +3724,8 @@ function runOptimizer() {
 
     function insertResult(entry) {
       const score = getScore(entry.wm);
-      // Only compute full/oos metrics if this entry qualifies for top heap
       if (topResults.length >= heapSize && score <= minScoreInHeap) return;
       entry._score = score;
-      // Compute full and oos metrics only for promising candidates
       entry.fm = evaluateMonthlyPL(monthlyPLs, entry.combo, entry.sizes, allMonths);
       entry.om = oosMonthKeys.length >= 2 ? evaluateMonthlyPL(monthlyPLs, entry.combo, entry.sizes, oosMonthKeys) : null;
       topResults.push(entry);
@@ -3706,31 +3735,29 @@ function runOptimizer() {
     }
 
     let skippedLowTrades = 0;
-    for (const combo of generateCombinations(strategies, minStrats, maxStrats)) {
-      // Skip combinations with too few trades in the optimization window
-      if (minTrades > 0 && countTradesInWindow(tradeCounts, combo, windowMonthKeys) < minTrades) {
-        skippedLowTrades++;
-        evaluated++;
-        continue;
-      }
-      if (maxSize === 1) {
-        const sizes = combo.map(() => 1);
-        const wm = evaluateMonthlyPL(monthlyPLs, combo, sizes, windowMonthKeys);
-        if (wm) insertResult({ combo: [...combo], sizes: [...sizes], wm, fm: null, om: null });
-        evaluated++;
-      } else {
-        const k = combo.length;
-        const totalPerms = Math.pow(maxSize, k);
-        for (let p = 0; p < totalPerms; p++) {
-          const sizes = [];
-          let rem = p;
-          for (let j = 0; j < k; j++) {
-            sizes.push((rem % maxSize) + 1);
-            rem = Math.floor(rem / maxSize);
-          }
+    var comboMin = Math.max(1, minStrats);
+    var eligibleMaxStrats = Math.min(maxStrats, eligible.length);
+    if (eligible.length >= comboMin) {
+      for (const combo of generateCombinations(eligible, comboMin, eligibleMaxStrats)) {
+        if (maxSize === 1) {
+          const sizes = combo.map(() => 1);
           const wm = evaluateMonthlyPL(monthlyPLs, combo, sizes, windowMonthKeys);
           if (wm) insertResult({ combo: [...combo], sizes: [...sizes], wm, fm: null, om: null });
           evaluated++;
+        } else {
+          const k = combo.length;
+          const totalPerms = Math.pow(maxSize, k);
+          for (let p = 0; p < totalPerms; p++) {
+            const sizes = [];
+            let rem = p;
+            for (let j = 0; j < k; j++) {
+              sizes.push((rem % maxSize) + 1);
+              rem = Math.floor(rem / maxSize);
+            }
+            const wm = evaluateMonthlyPL(monthlyPLs, combo, sizes, windowMonthKeys);
+            if (wm) insertResult({ combo: [...combo], sizes: [...sizes], wm, fm: null, om: null });
+            evaluated++;
+          }
         }
       }
     }
@@ -3747,9 +3774,7 @@ function runOptimizer() {
     }
     topResults.length = 0; // free memory
 
-    status.textContent = `Evaluated ${evaluated.toLocaleString()} combinations` +
-      (skippedLowTrades > 0 ? ` (${skippedLowTrades} skipped: <${minTrades} trades)` : '') +
-      `. Showing top ${finalResults.length}.`;
+    status.textContent = `${eligible.length}/${strategies.length} eligible. Evaluated ${evaluated.toLocaleString()} combinations. Showing top ${finalResults.length}.`;
     btn.disabled = false;
 
     if (!finalResults.length) {
@@ -4031,7 +4056,103 @@ function loadOptPortfolio(idx) {
 
 // ── WALK-FORWARD BACKTEST ───────────────────────────────────────────────────────
 
+function scanFitness() {
+  var base = window._G || G;
+  var trades = base.trades;
+  var strategies = base.strategies;
+  var objective = document.getElementById('optObjective').value;
+  var objLabels = { sharpe:'Sharpe', equity:'Equity', winRate:'Win %', maxDD:'Min Max DD', pf:'Risk/Reward (PF)', r2:'R²', expectancy:'Expectancy', winRateTrend:'Win% Trend' };
+
+  var trainMonthsVal = parseInt(document.getElementById('wfTrain').value) || 6;
+  var testDays = parseInt(document.getElementById('wfTest').value) || 30;
+  var useWeekly = testDays < 28;
+  var ppy = useWeekly ? 52 : 12;
+  var trainLen = useWeekly ? Math.round(trainMonthsVal * 4.33) : trainMonthsVal;
+
+  var periodPLs = useWeekly ? buildWeeklyPLByStrategy(trades, strategies) : buildMonthlyPLByStrategy(trades, strategies);
+  var allPeriods = useWeekly ? getAllWeekKeys(trades) : getAllMonthKeys(trades);
+
+  if (allPeriods.length < trainLen + 1) {
+    document.getElementById('wfStatus').textContent = 'Not enough data for scan.';
+    return;
+  }
+
+  // Use the LAST trainLen periods (most recent train window)
+  var trainPeriods = allPeriods.slice(-trainLen);
+
+  function getScore(metrics) {
+    switch(objective) {
+      case 'equity':  return metrics.totalPL;
+      case 'winRate': return metrics.winRate;
+      case 'maxDD':   return metrics.maxDD;
+      case 'pf':      return metrics.pf;
+      case 'r2':      return metrics.r2;
+      case 'expectancy': return metrics.expectancy;
+      case 'winRateTrend': return metrics.winRateTrend;
+      default:        return metrics.sharpe;
+    }
+  }
+
+  var results = [];
+  strategies.forEach(function(s) {
+    var m = evaluateMonthlyPL(periodPLs, [s], [1], trainPeriods, ppy);
+    if (m) {
+      results.push({ name: s, score: getScore(m), winRate: m.winRate, sharpe: m.sharpe, pf: m.pf, totalPL: m.totalPL });
+    }
+  });
+  results.sort(function(a, b) { return b.score - a.score; });
+
+  if (!results.length) {
+    document.getElementById('wfStatus').textContent = 'No strategies with valid data.';
+    return;
+  }
+
+  var scores = results.map(function(r) { return r.score; });
+  var avg = scores.reduce(function(a, b) { return a + b; }, 0) / scores.length;
+  var minV = scores[scores.length - 1];
+  var maxV = scores[0];
+  var medianV = scores.length % 2 === 0 ? (scores[scores.length/2 - 1] + scores[scores.length/2]) / 2 : scores[Math.floor(scores.length/2)];
+  var minFitness = parseFloat(document.getElementById('wfMinFitness').value) || 0;
+
+  var modeLabel = useWeekly ? 'weeks' : 'months';
+  var html = '<div style="font-size:11px;color:var(--muted);margin-bottom:6px">' +
+    'Individual <strong style="color:var(--gold)">' + (objLabels[objective] || 'Sharpe') + '</strong> fitness on last ' +
+    trainLen + ' ' + modeLabel + ' (' + trainPeriods[0] + ' → ' + trainPeriods[trainPeriods.length-1] + ')' +
+    ' — Min: <strong>' + minV.toFixed(2) + '</strong> | Avg: <strong>' + avg.toFixed(2) +
+    '</strong> | Median: <strong>' + medianV.toFixed(2) + '</strong> | Max: <strong>' + maxV.toFixed(2) + '</strong></div>';
+
+  html += '<div class="scroll-tbl" style="max-height:200px;overflow-y:auto"><table class="tbl"><thead><tr>' +
+    '<th>#</th><th>Strategy</th><th class="r">' + (objLabels[objective] || 'Sharpe') + '</th>' +
+    '<th class="r">Win%</th><th class="r">Sharpe</th><th class="r">PF</th><th class="r">P&L</th><th>Status</th>' +
+    '</tr></thead><tbody>';
+  for (var i = 0; i < results.length; i++) {
+    var r = results[i];
+    var pass = minFitness <= 0 || r.score >= minFitness;
+    var rowStyle = pass ? '' : ' style="opacity:0.4"';
+    var statusTd = pass ? '<td style="color:var(--accent);font-size:10px">ELIGIBLE</td>' : '<td style="color:var(--red);font-size:10px">FILTERED</td>';
+    html += '<tr' + rowStyle + '>' +
+      '<td>' + (i+1) + '</td>' +
+      '<td style="font-size:11px">' + r.name + '</td>' +
+      '<td class="r" style="color:' + (r.score >= (minFitness || 0) ? 'var(--accent)' : 'var(--red)') + '">' + r.score.toFixed(2) + '</td>' +
+      '<td class="r">' + r.winRate.toFixed(1) + '%</td>' +
+      '<td class="r">' + r.sharpe.toFixed(2) + '</td>' +
+      '<td class="r">' + r.pf.toFixed(2) + '</td>' +
+      '<td class="r" style="color:' + (r.totalPL >= 0 ? 'var(--accent)' : 'var(--red)') + '">$' + r.totalPL.toFixed(0) + '</td>' +
+      statusTd +
+      '</tr>';
+  }
+  html += '</tbody></table></div>';
+
+  var eligible = results.filter(function(r) { return minFitness <= 0 || r.score >= minFitness; }).length;
+  html += '<div style="font-size:11px;color:var(--gold);margin-top:4px"><strong>' + eligible + '/' + results.length + '</strong> strategies eligible with Min Fitness = ' + minFitness.toFixed(1) + '</div>';
+
+  var wrap = document.getElementById('fitnessScanWrap');
+  wrap.innerHTML = html;
+  wrap.style.display = 'block';
+}
+
 function runWalkForward() {
+ try {
   const base = window._G || G;
   const trades = base.trades;
   const strategies = base.strategies;
@@ -4041,12 +4162,13 @@ function runWalkForward() {
 
   const trainMonthsVal = parseInt(document.getElementById('wfTrain').value) || 6;
   const testDays = parseInt(document.getElementById('wfTest').value) || 30;
-  const minStrats = Math.max(2, parseInt(document.getElementById('optMinStrats').value) || 2);
-  const maxStrats = Math.min(Math.max(minStrats, parseInt(document.getElementById('optMaxStrats').value) || 6), strategies.length);
+  const minStrats = Math.max(0, parseInt(document.getElementById('optMinStrats').value) || 0);
+  const maxStrats = Math.min(Math.max(minStrats, 1, parseInt(document.getElementById('optMaxStrats').value) || 6), strategies.length);
   const maxSize = parseInt(document.getElementById('optMaxSize').value) || 1;
   const minTrades = parseInt(document.getElementById('optMinTrades').value) || 0;
   const objective = document.getElementById('optObjective').value;
   const objLabels = { sharpe:'Sharpe', equity:'Equity', winRate:'Win %', maxDD:'Min Max DD', pf:'Risk/Reward (PF)', r2:'R²', expectancy:'Expectancy', winRateTrend:'Win% Trend' };
+  const minFitness = parseFloat(document.getElementById('wfMinFitness').value) || 0;
 
   if (strategies.length < minStrats) { status.textContent = `Need at least ${minStrats} strategies.`; return; }
   if (trainMonthsVal < 2) { status.textContent = 'Train must be at least 2 months.'; return; }
@@ -4105,6 +4227,7 @@ function runWalkForward() {
   let cursor = 0;
 
   function processStep() {
+   try {
     if (cursor + trainLen >= allPeriods.length) {
       // Done — build cumulative equity from accumulated data
       btn.disabled = false;
@@ -4131,7 +4254,9 @@ function runWalkForward() {
         tradeDates.push(String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0') + '/' + String(d.getFullYear()).slice(2));
       });
 
-      status.textContent = 'Completed ' + steps.length + ' walk-forward steps (' + modeLabel + '). (' + oosTrades.length + ' trades)';
+      var skippedSteps = steps.filter(function(s) { return s.skipped; }).length;
+      var skippedInfo = skippedSteps > 0 ? ' (' + skippedSteps + ' skipped)' : '';
+      status.textContent = 'Completed ' + steps.length + ' walk-forward steps (' + modeLabel + ').' + skippedInfo + ' (' + oosTrades.length + ' trades)';
       setTimeout(function() { progressWrap.style.display = 'none'; }, 600);
       renderWalkForwardResults(steps, oosLabels, oosPLs, cumEquity, tradeEquity, tradeDates, oosTrades, objLabels[objective] || 'Sharpe');
       return;
@@ -4150,39 +4275,50 @@ function runWalkForward() {
 
     if (testPeriods.length === 0) { cursor = allPeriods.length; processStep(); return; }
 
-    // Find best portfolio on train window
+    // ── STEP 1: Pre-filter strategies individually ──
+    var eligible = [];
+    var minTradesPerStrat = minTrades > 0 && maxStrats > 0 ? Math.max(1, Math.floor(minTrades / maxStrats)) : 0;
+    strategies.forEach(function(s) {
+      // 1a. Min trades per strategy
+      if (minTradesPerStrat > 0) {
+        var tc = 0;
+        trainPeriods.forEach(function(m) { tc += (periodCounts[s][m] || 0); });
+        if (tc < minTradesPerStrat) return;
+      }
+      // 1b. Individual fitness check
+      var pls = trainPeriods.map(function(m) { return periodPLs[s][m] || 0; });
+      var indivMetrics = evaluateMonthlyPL(periodPLs, [s], [1], trainPeriods, ppy);
+      if (!indivMetrics) return;
+      var indivScore = getScore(indivMetrics);
+      if (minFitness > 0 && indivScore < minFitness) return;
+      eligible.push(s);
+    });
+
+    // ── STEP 2: Find best portfolio from eligible strategies ──
     let bestCombo = null, bestSizes = null, bestScore = -Infinity, bestTrainMetrics = null;
+    var comboMin = Math.max(1, minStrats);
 
-    const useGreedy = useWeekly && maxSize === 1 && (objective === 'winRate' || objective === 'winRateTrend');
+    if (eligible.length >= comboMin) {
+      const useGreedy = useWeekly && maxSize === 1 && (objective === 'winRate' || objective === 'winRateTrend');
 
-    if (useGreedy) {
-      // ── FAST GREEDY PATH for WinRate/WinRateTrend with size=1 ──
-      // 1. Compute each strategy's period P&L and individual score
-      var stratScores = [];
-      strategies.forEach(function(s) {
-        if (minTrades > 0) {
-          var tc = 0;
-          trainPeriods.forEach(function(m) { tc += (periodCounts[s][m] || 0); });
-          if (tc < Math.floor(minTrades / minStrats)) return; // skip strategies with very few trades
-        }
-        var pls = trainPeriods.map(function(m) { return periodPLs[s][m] || 0; });
-        var winCount = pls.filter(function(v) { return v > 0; }).length;
-        var wr = pls.length > 0 ? winCount / pls.length * 100 : 0;
-        stratScores.push({ name: s, pls: pls, winRate: wr });
-      });
-      stratScores.sort(function(a, b) { return b.winRate - a.winRate; });
+      if (useGreedy) {
+        // ── FAST GREEDY PATH for WinRate/WinRateTrend with size=1 ──
+        var stratScores = eligible.map(function(s) {
+          var pls = trainPeriods.map(function(m) { return periodPLs[s][m] || 0; });
+          var winCount = pls.filter(function(v) { return v > 0; }).length;
+          var wr = pls.length > 0 ? winCount / pls.length * 100 : 0;
+          return { name: s, pls: pls, winRate: wr };
+        });
+        stratScores.sort(function(a, b) { return b.winRate - a.winRate; });
 
-      if (stratScores.length >= minStrats) {
-        // 2. Start with top minStrats strategies
-        var selected = stratScores.slice(0, minStrats);
+        var selected = stratScores.slice(0, comboMin);
         var cumPls = trainPeriods.map(function(_, pi) {
           var sum = 0;
           selected.forEach(function(s) { sum += s.pls[pi]; });
           return sum;
         });
 
-        // 3. Greedily add more if they improve the score
-        for (var gi = minStrats; gi < stratScores.length && selected.length < maxStrats; gi++) {
+        for (var gi = comboMin; gi < stratScores.length && selected.length < maxStrats; gi++) {
           var candidate = stratScores[gi];
           var newPls = cumPls.map(function(v, pi) { return v + candidate.pls[pi]; });
           var newWins = newPls.filter(function(v) { return v > 0; }).length;
@@ -4193,39 +4329,21 @@ function runWalkForward() {
           }
         }
 
-        // 4. Evaluate the final combo properly
         var greedyCombo = selected.map(function(s) { return s.name; });
         var greedySizes = greedyCombo.map(function() { return 1; });
-        if (minTrades <= 0 || countTradesInWindow(periodCounts, greedyCombo, trainPeriods) >= minTrades) {
-          var wm = evaluateMonthlyPL(periodPLs, greedyCombo, greedySizes, trainPeriods, ppy);
-          if (wm) {
-            bestScore = getScore(wm);
-            bestCombo = greedyCombo;
-            bestSizes = greedySizes;
-            bestTrainMetrics = wm;
-          }
+        var wm = evaluateMonthlyPL(periodPLs, greedyCombo, greedySizes, trainPeriods, ppy);
+        if (wm) {
+          bestScore = getScore(wm);
+          bestCombo = greedyCombo;
+          bestSizes = greedySizes;
+          bestTrainMetrics = wm;
         }
-      }
-    } else {
-      // ── BRUTE FORCE PATH for other objectives or size > 1 ──
-      for (const combo of generateCombinations(strategies, minStrats, maxStrats)) {
-        if (minTrades > 0 && countTradesInWindow(periodCounts, combo, trainPeriods) < minTrades) continue;
-        if (maxSize === 1) {
-          const sizes = combo.map(() => 1);
-          const wm = evaluateMonthlyPL(periodPLs, combo, sizes, trainPeriods, ppy);
-          if (wm) {
-            const score = getScore(wm);
-            if (score > bestScore) {
-              bestScore = score; bestCombo = [...combo]; bestSizes = [...sizes]; bestTrainMetrics = wm;
-            }
-          }
-        } else {
-          const k = combo.length;
-          const totalPerms = Math.pow(maxSize, k);
-          for (let p = 0; p < totalPerms; p++) {
-            const sizes = [];
-            let rem = p;
-            for (let j = 0; j < k; j++) { sizes.push((rem % maxSize) + 1); rem = Math.floor(rem / maxSize); }
+      } else {
+        // ── BRUTE FORCE PATH ──
+        var eligibleMaxStrats = Math.min(maxStrats, eligible.length);
+        for (const combo of generateCombinations(eligible, comboMin, eligibleMaxStrats)) {
+          if (maxSize === 1) {
+            const sizes = combo.map(() => 1);
             const wm = evaluateMonthlyPL(periodPLs, combo, sizes, trainPeriods, ppy);
             if (wm) {
               const score = getScore(wm);
@@ -4233,12 +4351,33 @@ function runWalkForward() {
                 bestScore = score; bestCombo = [...combo]; bestSizes = [...sizes]; bestTrainMetrics = wm;
               }
             }
+          } else {
+            const k = combo.length;
+            const totalPerms = Math.pow(maxSize, k);
+            for (let p = 0; p < totalPerms; p++) {
+              const sizes = [];
+              let rem = p;
+              for (let j = 0; j < k; j++) { sizes.push((rem % maxSize) + 1); rem = Math.floor(rem / maxSize); }
+              const wm = evaluateMonthlyPL(periodPLs, combo, sizes, trainPeriods, ppy);
+              if (wm) {
+                const score = getScore(wm);
+                if (score > bestScore) {
+                  bestScore = score; bestCombo = [...combo]; bestSizes = [...sizes]; bestTrainMetrics = wm;
+                }
+              }
+            }
           }
         }
+      }
+
+      // ── STEP 3: Final portfolio fitness check ──
+      if (bestCombo && minFitness > 0 && bestScore < minFitness) {
+        bestCombo = null; // portfolio fitness too low → skip
       }
     }
 
     if (bestCombo) {
+      // Best portfolio found and passes all filters → trade
       var testMetrics = evaluateMonthlyPL(periodPLs, bestCombo, bestSizes, testPeriods, ppy);
       var testPLs = testPeriods.map(function(m) {
         var sum = 0;
@@ -4246,13 +4385,11 @@ function runWalkForward() {
         return sum;
       });
 
-      // Accumulate period data for summary
       testPeriods.forEach(function(m, i) {
         oosLabels.push(m);
         oosPLs.push(testPLs[i]);
       });
 
-      // Collect actual trades in test window for equity curve
       var comboSet = {};
       bestCombo.forEach(function(s, i) { comboSet[s] = bestSizes[i]; });
       var firstPeriod = testPeriods[0];
@@ -4272,43 +4409,82 @@ function runWalkForward() {
         testRange: testPeriods[0] + ' → ' + testPeriods[testPeriods.length-1],
         combo: bestCombo, sizes: bestSizes,
         trainScore: bestScore, trainMetrics: bestTrainMetrics,
-        testMetrics: testMetrics, testMonths: testPeriods, testPLs: testPLs
+        testMetrics: testMetrics, testMonths: testPeriods, testPLs: testPLs,
+        skipped: false, eligible: eligible.length
+      });
+    } else {
+      // No eligible strategies or portfolio fitness too low → skip
+      steps.push({
+        trainRange: trainPeriods[0] + ' → ' + trainPeriods[trainPeriods.length-1],
+        testRange: testPeriods[0] + ' → ' + testPeriods[testPeriods.length-1],
+        combo: [], sizes: [],
+        trainScore: 0, trainMetrics: null,
+        testMetrics: null, testMonths: testPeriods, testPLs: null,
+        skipped: true, eligible: eligible.length
       });
     }
 
     cursor += testLen; // slide by test length, train window overlaps
     // Yield to browser for UI update, then process next step
     setTimeout(processStep, 0);
+   } catch(e) {
+    status.textContent = 'ERROR in step: ' + e.message;
+    console.error('WF step error:', e);
+    btn.disabled = false;
+   }
   }
 
   requestAnimationFrame(processStep);
+ } catch(e) {
+  var st = document.getElementById('wfStatus');
+  if (st) st.textContent = 'ERROR: ' + e.message;
+  console.error('WF error:', e);
+  var btn2 = document.getElementById('wfRunBtn');
+  if (btn2) btn2.disabled = false;
+ }
 }
 
 function renderWalkForwardResults(steps, oosLabels, oosPLs, cumEquity, tradeEquity, tradeDates, oosTrades, objLabel) {
   var resultsWrap = document.getElementById('wfResultsWrap');
   resultsWrap.style.display = 'block';
 
+  var totalSkipped = steps.filter(function(s) { return s.skipped; }).length;
+  var skippedStr = totalSkipped > 0 ? ' (' + totalSkipped + ' skipped)' : '';
   document.getElementById('wfCriteriaLabel').textContent =
-    '— ' + steps.length + ' steps, optimized by ' + objLabel;
+    '— ' + steps.length + ' steps' + skippedStr + ', optimized by ' + objLabel;
 
   // Steps table with cumulative P&L
   var cumPL = 0;
+  var skippedCount = 0;
   var tbody = document.getElementById('wfStepsBody');
   var rows = '';
   for (var i = 0; i < steps.length; i++) {
     var s = steps[i];
     var comboStr = s.combo.map(function(c, j) { return c + (s.sizes[j] > 1 ? ' x' + s.sizes[j] : ''); }).join(', ');
-    var testPL = s.testMetrics ? s.testMetrics.totalPL : 0;
-    cumPL += testPL;
-    rows += '<tr>' +
-      '<td>' + (i+1) + '</td>' +
-      '<td style="font-size:11px">' + s.trainRange + '</td>' +
-      '<td style="font-size:11px">' + s.testRange + '</td>' +
-      '<td style="font-size:11px">' + comboStr + '</td>' +
-      '<td class="r">' + s.trainScore.toFixed(2) + '</td>' +
-      '<td class="r" style="color:' + (testPL>=0?'var(--accent)':'var(--red)') + '">$' + testPL.toFixed(0) + '</td>' +
-      '<td class="r" style="color:' + (cumPL>=0?'var(--accent)':'var(--red)') + '">$' + cumPL.toFixed(0) + '</td>' +
-      '</tr>';
+    if (s.skipped) {
+      skippedCount++;
+      rows += '<tr style="opacity:0.5">' +
+        '<td>' + (i+1) + '</td>' +
+        '<td style="font-size:11px">' + s.trainRange + '</td>' +
+        '<td style="font-size:11px">' + s.testRange + '</td>' +
+        '<td style="font-size:11px;color:var(--red)">SKIPPED (' + (s.eligible || 0) + ' eligible)</td>' +
+        '<td class="r" style="color:var(--red)">' + s.trainScore.toFixed(2) + '</td>' +
+        '<td class="r">—</td>' +
+        '<td class="r" style="color:' + (cumPL>=0?'var(--accent)':'var(--red)') + '">$' + cumPL.toFixed(0) + '</td>' +
+        '</tr>';
+    } else {
+      var testPL = s.testMetrics ? s.testMetrics.totalPL : 0;
+      cumPL += testPL;
+      rows += '<tr>' +
+        '<td>' + (i+1) + '</td>' +
+        '<td style="font-size:11px">' + s.trainRange + '</td>' +
+        '<td style="font-size:11px">' + s.testRange + '</td>' +
+        '<td style="font-size:11px">' + comboStr + '</td>' +
+        '<td class="r">' + s.trainScore.toFixed(2) + '</td>' +
+        '<td class="r" style="color:' + (testPL>=0?'var(--accent)':'var(--red)') + '">$' + testPL.toFixed(0) + '</td>' +
+        '<td class="r" style="color:' + (cumPL>=0?'var(--accent)':'var(--red)') + '">$' + cumPL.toFixed(0) + '</td>' +
+        '</tr>';
+    }
   }
   tbody.innerHTML = rows;
 
@@ -4475,16 +4651,17 @@ function renderWalkForwardResults(steps, oosLabels, oosPLs, cumEquity, tradeEqui
   }
   mBody.innerHTML = mRows;
 
-  // Strategy frequency chart
+  // Strategy frequency chart (exclude skipped steps)
+  var activeSteps = steps.filter(function(s) { return !s.skipped; });
   var freqMap = {};
-  steps.forEach(function(s) {
+  activeSteps.forEach(function(s) {
     s.combo.forEach(function(name) {
       freqMap[name] = (freqMap[name] || 0) + 1;
     });
   });
   var freqEntries = Object.keys(freqMap).map(function(k) { return { name: k, count: freqMap[k] }; });
   freqEntries.sort(function(a, b) { return b.count - a.count; });
-  drawWalkForwardFrequency(freqEntries, steps.length);
+  drawWalkForwardFrequency(freqEntries, activeSteps.length);
 
   // Draw trade-level equity chart — container is already visible
   drawWalkForwardEquity(tradeDates, tradeEquity);
