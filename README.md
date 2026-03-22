@@ -70,6 +70,7 @@ Built by a retail trader, for retail traders.
 - **Monthly P&L heatmap**: year × month grid with green/red coloring, annual totals, and monthly averages
 - Progress bar with real-time step-by-step status updates
 - **Greedy fast path**: O(S×P) optimization for Win%/Win% Trend in weekly mode with size=1
+- **Optimizer Presets**: save/load named parameter configurations (stored in localStorage) — quickly switch between different optimization setups
 
 ### 🤖 AI-Powered Insights (Multi-Provider)
 - **4 AI providers supported**: Claude (Anthropic), GPT-4o (OpenAI), Gemini (Google), Groq
@@ -184,6 +185,7 @@ Exported CSV from **[Option Omega](https://optonomega.com)** with the following 
 - [x] 8 fitness functions including Expectancy and Win% Trend
 - [x] Scan Fitness tool for threshold calibration
 - [x] Min Fitness regime filter (skip bad periods)
+- [x] Optimizer presets (save/load named configurations)
 - [x] Weekly resolution mode for short test periods
 - [ ] AI-powered strategy selection based on current market conditions
 - [ ] Strategy automation tools *(in development — [join waitlist](https://docs.google.com/forms/d/e/1FAIpQLSf-FkBSWFW1DuAekiaYs5b4AqVt9iBJBdW4V3c4rwdSP3IjFA/viewform?usp=header))*

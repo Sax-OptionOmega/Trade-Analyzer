@@ -701,6 +701,14 @@ input[type=range].zslider::-webkit-slider-thumb {
     <div class="sec">Rolling Window Portfolio Optimizer</div>
     <div class="card">
       <div class="card-body">
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
+          <select class="opt-select" id="presetSelect" style="width:200px;font-size:11px">
+            <option value="">— Select Preset —</option>
+          </select>
+          <button class="opt-run" onclick="loadPreset()" style="font-size:11px;padding:4px 10px;background:var(--accent)">Load</button>
+          <button class="opt-run" onclick="savePreset()" style="font-size:11px;padding:4px 10px;background:var(--gold);color:#000">Save</button>
+          <button class="opt-run" onclick="deletePreset()" style="font-size:11px;padding:4px 10px;background:var(--red)">Delete</button>
+        </div>
         <div class="opt-controls">
           <div class="opt-field">
             <label>End Date</label>
@@ -3430,6 +3438,7 @@ function initOptimizerDates() {
     endEl.value = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
   }
   applyQuickRange();
+  refreshPresetList();
 }
 
 function applyQuickRange() {
@@ -4055,6 +4064,70 @@ function loadOptPortfolio(idx) {
 }
 
 // ── WALK-FORWARD BACKTEST ───────────────────────────────────────────────────────
+
+// === Optimizer Presets (localStorage) ===
+var PRESET_KEY = 'tradeAnalyzerPresets';
+var PRESET_FIELDS = [
+  {id:'optQuickRange',type:'val'},{id:'optMinStrats',type:'val'},{id:'optMaxStrats',type:'val'},
+  {id:'optObjective',type:'val'},{id:'optMaxSize',type:'val'},{id:'optMinTrades',type:'val'},
+  {id:'optTopN',type:'val'},{id:'wfTrain',type:'val'},{id:'wfTest',type:'val'},{id:'wfMinFitness',type:'val'}
+];
+
+function getPresets() {
+  try { return JSON.parse(localStorage.getItem(PRESET_KEY)) || {}; } catch(e) { return {}; }
+}
+
+function refreshPresetList() {
+  var sel = document.getElementById('presetSelect');
+  var presets = getPresets();
+  var names = Object.keys(presets).sort();
+  sel.innerHTML = '<option value="">— Select Preset —</option>';
+  names.forEach(function(n) {
+    var o = document.createElement('option');
+    o.value = n; o.textContent = n;
+    sel.appendChild(o);
+  });
+}
+
+function savePreset() {
+  var sel = document.getElementById('presetSelect');
+  var name = sel.value || prompt('Preset name:');
+  if (!name || !name.trim()) return;
+  name = name.trim();
+  var data = {};
+  PRESET_FIELDS.forEach(function(f) {
+    var el = document.getElementById(f.id);
+    if (el) data[f.id] = el.value;
+  });
+  var presets = getPresets();
+  presets[name] = data;
+  localStorage.setItem(PRESET_KEY, JSON.stringify(presets));
+  refreshPresetList();
+  sel.value = name;
+}
+
+function loadPreset() {
+  var sel = document.getElementById('presetSelect');
+  if (!sel.value) return;
+  var presets = getPresets();
+  var data = presets[sel.value];
+  if (!data) return;
+  PRESET_FIELDS.forEach(function(f) {
+    var el = document.getElementById(f.id);
+    if (el && data[f.id] !== undefined) el.value = data[f.id];
+  });
+  applyQuickRange();
+}
+
+function deletePreset() {
+  var sel = document.getElementById('presetSelect');
+  if (!sel.value) return;
+  if (!confirm('Delete preset "' + sel.value + '"?')) return;
+  var presets = getPresets();
+  delete presets[sel.value];
+  localStorage.setItem(PRESET_KEY, JSON.stringify(presets));
+  refreshPresetList();
+}
 
 function scanFitness() {
   var base = window._G || G;
