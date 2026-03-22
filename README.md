@@ -46,11 +46,12 @@ Built by a retail trader, for retail traders.
 
 ### 🔬 Rolling Window Portfolio Optimizer
 - **End Date + Months Back**: select an end date and a free-form look-back period (any number of months) to define the optimization window
-- **8 fitness functions**: Sharpe, Equity (Total P&L), Win %, Min Max DD, Risk/Reward (Profit Factor), R² (equity linearity), Expectancy (Win% × Avg Win/Loss), Win% Trend (penalizes recent decay)
+- **12 fitness functions**: Sharpe, Sortino (downside risk only), Calmar (return/max DD), UPI (Ulcer Performance Index), Omega (gain/loss ratio), Equity (Total P&L), Win %, Min Max DD, Risk/Reward (Profit Factor), R² (equity linearity), Expectancy (Win% × Avg Win/Loss), Win% Trend (penalizes recent decay)
 - **Smart pre-filtering**: strategies are individually evaluated — those below the **Min Fitness** threshold or with too few trades are eliminated before combination search
 - **Scan Fitness button**: instantly shows every strategy's individual fitness score with min/avg/median/max stats, so you can calibrate the Min Fitness threshold before running
 - **Min Trades filter**: skip strategies with fewer than N trades in the window (default 20) to reduce overfitting
 - **Min/Max Strategies**: set portfolio size bounds (min can be 0 — if all strategies are below threshold, the period is skipped)
+- **Method selector**: Auto / Brute Force / Greedy — choose between exact search or fast greedy forward stepwise (auto switches at >50K combinations)
 - Brute-force evaluation of all strategy combinations and size allocations
 - Ranked results with full metrics: Calmar, Sortino, Profit Factor, Win Rate, Max DD
 - **Out-of-sample validation**: metrics computed on data outside the optimization window
@@ -69,7 +70,8 @@ Built by a retail trader, for retail traders.
 - **Best/Worst month and week** statistics
 - **Monthly P&L heatmap**: year × month grid with green/red coloring, annual totals, and monthly averages
 - Progress bar with real-time step-by-step status updates
-- **Greedy fast path**: O(S×P) optimization for Win%/Win% Trend in weekly mode with size=1
+- **Greedy forward stepwise**: O(S×K×P) optimization for all fitness functions — handles 30+ strategies with max 10 in seconds
+- **Stop/Resume**: interrupt long-running Walk-Forward and see partial results, then resume from where it stopped
 - **Optimizer Presets**: save/load named parameter configurations (stored in localStorage) — quickly switch between different optimization setups
 
 ### 🤖 AI-Powered Insights (Multi-Provider)
@@ -182,11 +184,14 @@ Exported CSV from **[Option Omega](https://optonomega.com)** with the following 
 ## Roadmap
 - [x] Rolling window portfolio optimizer with custom date range
 - [x] Walk-forward backtest with trade-level equity curve
-- [x] 8 fitness functions including Expectancy and Win% Trend
+- [x] 12 fitness functions including Sortino, Calmar, UPI, Omega
 - [x] Scan Fitness tool for threshold calibration
 - [x] Min Fitness regime filter (skip bad periods)
 - [x] Optimizer presets (save/load named configurations)
 - [x] Weekly resolution mode for short test periods
+- [x] Greedy forward stepwise optimization (handles 30+ strategies)
+- [x] Stop/Resume for Walk-Forward backtest
+- [x] Method selector (Auto/Brute Force/Greedy)
 - [ ] AI-powered strategy selection based on current market conditions
 - [ ] Strategy automation tools *(in development — [join waitlist](https://docs.google.com/forms/d/e/1FAIpQLSf-FkBSWFW1DuAekiaYs5b4AqVt9iBJBdW4V3c4rwdSP3IjFA/viewform?usp=header))*
 
