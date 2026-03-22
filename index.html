@@ -808,6 +808,8 @@ input[type=range].zslider::-webkit-slider-thumb {
             <div class="opt-field">
               <label>&nbsp;</label>
               <button class="opt-run" id="wfRunBtn" onclick="runWalkForward()" style="background:var(--gold);color:#000">Run Walk-Forward</button>
+              <button class="opt-run" id="wfStopBtn" onclick="stopWalkForward()" style="background:var(--red);color:#fff;display:none">Stop</button>
+              <button class="opt-run" id="wfResumeBtn" onclick="resumeWalkForward()" style="background:var(--accent);color:#000;display:none">Resume</button>
             </div>
             <div class="opt-field">
               <label>&nbsp;</label>
@@ -4334,8 +4336,29 @@ function scanFitness() {
   wrap.style.display = 'block';
 }
 
+// Walk-Forward state for stop/resume
+var _wfState = null;
+var _wfStopped = false;
+
+function stopWalkForward() {
+  _wfStopped = true;
+  document.getElementById('wfStopBtn').style.display = 'none';
+}
+
+function resumeWalkForward() {
+  if (!_wfState || !_wfState.processStep) return;
+  _wfStopped = false;
+  document.getElementById('wfRunBtn').style.display = 'none';
+  document.getElementById('wfStopBtn').style.display = '';
+  document.getElementById('wfResumeBtn').style.display = 'none';
+  document.getElementById('wfStatus').textContent = 'Resuming...';
+  requestAnimationFrame(_wfState.processStep);
+}
+
 function runWalkForward() {
  try {
+  _wfStopped = false;
+  _wfState = null;
   const base = window._G || G;
   const trades = base.trades;
   const strategies = base.strategies;
@@ -4357,6 +4380,9 @@ function runWalkForward() {
   if (trainMonthsVal < 2) { status.textContent = 'Train must be at least 2 months.'; return; }
 
   btn.disabled = true;
+  btn.style.display = 'none';
+  document.getElementById('wfStopBtn').style.display = '';
+  document.getElementById('wfResumeBtn').style.display = 'none';
   resultsWrap.style.display = 'none';
 
   const progressWrap = document.getElementById('wfProgressWrap');
@@ -4393,7 +4419,9 @@ function runWalkForward() {
 
   if (allPeriods.length < trainLen + testLen) {
     status.textContent = `Not enough data: ${allPeriods.length} ${modeLabel} available, need at least ${trainLen + testLen}.`;
-    btn.disabled = false;
+    btn.disabled = false; btn.style.display = '';
+    document.getElementById('wfStopBtn').style.display = 'none';
+    document.getElementById('wfResumeBtn').style.display = 'none';
     progressWrap.style.display = 'none';
     return;
   }
@@ -4411,9 +4439,33 @@ function runWalkForward() {
 
   function processStep() {
    try {
+    // Check for stop
+    if (_wfStopped) {
+      _wfState = { processStep: processStep };
+      btn.disabled = false;
+      btn.style.display = '';
+      document.getElementById('wfStopBtn').style.display = 'none';
+      document.getElementById('wfResumeBtn').style.display = '';
+      var completedSteps = steps.length;
+      status.textContent = 'Stopped at step ' + completedSteps + '/' + totalSteps + '. Click Resume to continue.';
+      // Show partial results if any
+      if (steps.length > 0) {
+        var cumEquity = [], cum = 0;
+        oosPLs.forEach(function(v) { cum += v; cumEquity.push(cum); });
+        var tradeEquity = [], tc = 0, tradeDates = [];
+        oosTrades.forEach(function(t) { tc += t.pl; tradeEquity.push(tc); tradeDates.push(t.dateClose || t.dateOpen || t.date); });
+        renderWalkForwardResults(steps, oosLabels, oosPLs, cumEquity, tradeEquity, tradeDates, oosTrades, objLabels[objective] || 'Sharpe');
+        resultsWrap.style.display = '';
+      }
+      return;
+    }
     if (cursor + trainLen >= allPeriods.length) {
       // Done — build cumulative equity from accumulated data
+      _wfState = null;
       btn.disabled = false;
+      btn.style.display = '';
+      document.getElementById('wfStopBtn').style.display = 'none';
+      document.getElementById('wfResumeBtn').style.display = 'none';
       progressBar.style.width = '100%';
       progressLabel.textContent = '100%';
 
@@ -4653,7 +4705,9 @@ function runWalkForward() {
   if (st) st.textContent = 'ERROR: ' + e.message;
   console.error('WF error:', e);
   var btn2 = document.getElementById('wfRunBtn');
-  if (btn2) btn2.disabled = false;
+  if (btn2) { btn2.disabled = false; btn2.style.display = ''; }
+  document.getElementById('wfStopBtn').style.display = 'none';
+  document.getElementById('wfResumeBtn').style.display = 'none';
  }
 }
 
