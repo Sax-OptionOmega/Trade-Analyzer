@@ -736,6 +736,10 @@ input[type=range].zslider::-webkit-slider-thumb {
               <option value="maxDD">Min Max DD</option>
               <option value="pf">Risk/Reward (PF)</option>
               <option value="r2">R² (Equity Linearity)</option>
+              <option value="sortino">Sortino (downside risk only)</option>
+              <option value="calmar">Calmar (return / max DD)</option>
+              <option value="ulcer">UPI (Ulcer Performance Index)</option>
+              <option value="omega">Omega (gain/loss ratio)</option>
               <option value="expectancy">Expectancy (Win% × Win/Loss)</option>
               <option value="winRateTrend">Win% Trend (penalizes decay)</option>
             </select>
@@ -3633,7 +3637,25 @@ function evaluateMonthlyPL(monthlyPLs, combo, sizes, months, periodsPerYear) {
     }
   }
 
-  return { totalPL, mean, sharpe, maxDD, calmar, winRate, pf, sortino, r2, expectancy, winRateTrend };
+  // Ulcer Performance Index (UPI): mean / Ulcer Index, annualized
+  // Ulcer Index = sqrt(mean of squared percentage drawdowns from equity peak)
+  let ulcer = 0;
+  if (pls.length >= 2) {
+    let c2 = 0, pk2 = 0, sumSqDD = 0;
+    pls.forEach(v => {
+      c2 += v;
+      pk2 = Math.max(pk2, c2);
+      const dd = pk2 > 0 ? (c2 - pk2) / pk2 * 100 : 0;
+      sumSqDD += dd * dd;
+    });
+    const ulcerIdx = Math.sqrt(sumSqDD / pls.length);
+    ulcer = ulcerIdx > 0 ? (mean / ulcerIdx) * Math.sqrt(ppy) : 0;
+  }
+
+  // Omega Ratio: sum of gains / sum of losses (threshold = 0)
+  const omega = grossL > 0 ? grossW / grossL : (grossW > 0 ? 999 : 0);
+
+  return { totalPL, mean, sharpe, maxDD, calmar, winRate, pf, sortino, r2, expectancy, winRateTrend, ulcer, omega };
 }
 
 function runOptimizer() {
@@ -3689,7 +3711,7 @@ function runOptimizer() {
 
     // Objective function
     const objective = document.getElementById('optObjective').value;
-    const objLabels = { sharpe:'Sharpe', equity:'Equity', winRate:'Win %', maxDD:'Min Max DD', pf:'Risk/Reward (PF)', r2:'R²', expectancy:'Expectancy', winRateTrend:'Win% Trend' };
+    const objLabels = { sharpe:'Sharpe', equity:'Equity', winRate:'Win %', maxDD:'Min Max DD', pf:'Risk/Reward (PF)', r2:'R²', sortino:'Sortino', calmar:'Calmar', ulcer:'UPI', omega:'Omega', expectancy:'Expectancy', winRateTrend:'Win% Trend' };
 
     function getScore(metrics) {
       switch(objective) {
@@ -3698,6 +3720,10 @@ function runOptimizer() {
         case 'maxDD':   return metrics.maxDD; // least negative = best, so higher is better
         case 'pf':      return metrics.pf;
         case 'r2':      return metrics.r2;
+        case 'sortino': return metrics.sortino;
+        case 'calmar': return metrics.calmar;
+        case 'ulcer':  return metrics.ulcer;
+        case 'omega':  return metrics.omega;
         case 'expectancy': return metrics.expectancy;
         case 'winRateTrend': return metrics.winRateTrend;
         default:        return metrics.sharpe;
@@ -3806,7 +3832,7 @@ function renderOptimizerResults(results, allMonths, monthlyPLs, windowStart) {
   const resultsWrap = document.getElementById('optResultsWrap');
   resultsWrap.style.display = 'block';
 
-  const objLabels = { sharpe:'Sharpe', equity:'Equity', winRate:'Win %', maxDD:'Min Max DD', pf:'Risk/Reward (PF)', r2:'R²', expectancy:'Expectancy', winRateTrend:'Win% Trend' };
+  const objLabels = { sharpe:'Sharpe', equity:'Equity', winRate:'Win %', maxDD:'Min Max DD', pf:'Risk/Reward (PF)', r2:'R²', sortino:'Sortino', calmar:'Calmar', ulcer:'UPI', omega:'Omega', expectancy:'Expectancy', winRateTrend:'Win% Trend' };
   const obj = document.getElementById('optObjective').value;
   document.getElementById('optCriteriaLabel').textContent =
     `— ranked by ${objLabels[obj] || 'Sharpe'} on ${allMonths.slice(windowStart).length}-month window`;
@@ -4134,7 +4160,7 @@ function scanFitness() {
   var trades = base.trades;
   var strategies = base.strategies;
   var objective = document.getElementById('optObjective').value;
-  var objLabels = { sharpe:'Sharpe', equity:'Equity', winRate:'Win %', maxDD:'Min Max DD', pf:'Risk/Reward (PF)', r2:'R²', expectancy:'Expectancy', winRateTrend:'Win% Trend' };
+  var objLabels = { sharpe:'Sharpe', equity:'Equity', winRate:'Win %', maxDD:'Min Max DD', pf:'Risk/Reward (PF)', r2:'R²', sortino:'Sortino', calmar:'Calmar', ulcer:'UPI', omega:'Omega', expectancy:'Expectancy', winRateTrend:'Win% Trend' };
 
   var trainMonthsVal = parseInt(document.getElementById('wfTrain').value) || 6;
   var testDays = parseInt(document.getElementById('wfTest').value) || 30;
@@ -4240,7 +4266,7 @@ function runWalkForward() {
   const maxSize = parseInt(document.getElementById('optMaxSize').value) || 1;
   const minTrades = parseInt(document.getElementById('optMinTrades').value) || 0;
   const objective = document.getElementById('optObjective').value;
-  const objLabels = { sharpe:'Sharpe', equity:'Equity', winRate:'Win %', maxDD:'Min Max DD', pf:'Risk/Reward (PF)', r2:'R²', expectancy:'Expectancy', winRateTrend:'Win% Trend' };
+  const objLabels = { sharpe:'Sharpe', equity:'Equity', winRate:'Win %', maxDD:'Min Max DD', pf:'Risk/Reward (PF)', r2:'R²', sortino:'Sortino', calmar:'Calmar', ulcer:'UPI', omega:'Omega', expectancy:'Expectancy', winRateTrend:'Win% Trend' };
   const minFitness = parseFloat(document.getElementById('wfMinFitness').value) || 0;
 
   if (strategies.length < minStrats) { status.textContent = `Need at least ${minStrats} strategies.`; return; }
