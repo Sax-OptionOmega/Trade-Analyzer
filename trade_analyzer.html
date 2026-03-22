@@ -753,6 +753,14 @@ input[type=range].zslider::-webkit-slider-thumb {
             </select>
           </div>
           <div class="opt-field">
+            <label>Method</label>
+            <select class="opt-select" id="optMethod">
+              <option value="auto" selected>Auto</option>
+              <option value="brute">Brute Force</option>
+              <option value="greedy">Greedy</option>
+            </select>
+          </div>
+          <div class="opt-field">
             <label>Min Trades</label>
             <input type="number" class="opt-input" id="optMinTrades" min="0" max="999" value="20" style="width:70px" title="Minimum total trades in train window to consider a combination valid">
           </div>
@@ -3760,7 +3768,8 @@ function runOptimizer() {
       for (var ci = 0; ci < ck; ci++) c = c * (eligible.length - ci) / (ci + 1);
       totalCombos += c * (maxSize === 1 ? 1 : Math.pow(maxSize, ck));
     }
-    var USE_GREEDY = totalCombos > 50000;
+    var methodSel = document.getElementById('optMethod').value;
+    var USE_GREEDY = methodSel === 'greedy' || (methodSel === 'auto' && totalCombos > 50000);
 
     let evaluated = 0;
     const heapSize = topN * 2;
@@ -4170,7 +4179,7 @@ function loadOptPortfolio(idx) {
 var PRESET_KEY = 'tradeAnalyzerPresets';
 var PRESET_FIELDS = [
   {id:'optQuickRange',type:'val'},{id:'optMinStrats',type:'val'},{id:'optMaxStrats',type:'val'},
-  {id:'optObjective',type:'val'},{id:'optMaxSize',type:'val'},{id:'optMinTrades',type:'val'},
+  {id:'optObjective',type:'val'},{id:'optMaxSize',type:'val'},{id:'optMethod',type:'val'},{id:'optMinTrades',type:'val'},
   {id:'optTopN',type:'val'},{id:'wfTrain',type:'val'},{id:'wfTest',type:'val'},{id:'wfMinFitness',type:'val'}
 ];
 
@@ -4481,7 +4490,8 @@ function runWalkForward() {
         for (var ci = 0; ci < ck; ci++) c = c * (eligible.length - ci) / (ci + 1);
         totalCombosEst += c * (maxSize === 1 ? 1 : Math.pow(maxSize, ck));
       }
-      var wfUseGreedy = totalCombosEst > 50000;
+      var methodSel = document.getElementById('optMethod').value;
+      var wfUseGreedy = methodSel === 'greedy' || (methodSel === 'auto' && totalCombosEst > 50000);
 
       if (wfUseGreedy) {
         // ── GREEDY FORWARD STEPWISE (all fitness functions) ──
