@@ -3751,10 +3751,20 @@ function runOptimizer() {
 
     status.textContent = `${eligible.length}/${strategies.length} strategies eligible. Evaluating combinations...`;
 
-    // Enumerate all combinations — keep only top N in memory (bounded heap)
+    // Estimate total combinations to decide greedy vs brute-force
+    var comboMin = Math.max(1, minStrats);
+    var eligibleMaxStrats = Math.min(maxStrats, eligible.length);
+    var totalCombos = 0;
+    for (var ck = comboMin; ck <= Math.min(eligibleMaxStrats, eligible.length); ck++) {
+      var c = 1;
+      for (var ci = 0; ci < ck; ci++) c = c * (eligible.length - ci) / (ci + 1);
+      totalCombos += c * (maxSize === 1 ? 1 : Math.pow(maxSize, ck));
+    }
+    var USE_GREEDY = totalCombos > 50000;
+
     let evaluated = 0;
-    const heapSize = topN * 2; // keep 2x to allow dedup later
-    const topResults = []; // bounded array sorted by objective descending
+    const heapSize = topN * 2;
+    const topResults = [];
     let minScoreInHeap = -Infinity;
 
     function insertResult(entry) {
@@ -3769,29 +3779,93 @@ function runOptimizer() {
       minScoreInHeap = topResults[topResults.length - 1]._score;
     }
 
-    let skippedLowTrades = 0;
-    var comboMin = Math.max(1, minStrats);
-    var eligibleMaxStrats = Math.min(maxStrats, eligible.length);
     if (eligible.length >= comboMin) {
-      for (const combo of generateCombinations(eligible, comboMin, eligibleMaxStrats)) {
-        if (maxSize === 1) {
-          const sizes = combo.map(() => 1);
-          const wm = evaluateMonthlyPL(monthlyPLs, combo, sizes, windowMonthKeys);
-          if (wm) insertResult({ combo: [...combo], sizes: [...sizes], wm, fm: null, om: null });
-          evaluated++;
-        } else {
-          const k = combo.length;
-          const totalPerms = Math.pow(maxSize, k);
-          for (let p = 0; p < totalPerms; p++) {
-            const sizes = [];
-            let rem = p;
-            for (let j = 0; j < k; j++) {
-              sizes.push((rem % maxSize) + 1);
-              rem = Math.floor(rem / maxSize);
+      if (USE_GREEDY) {
+        // ── GREEDY FORWARD STEPWISE (for all fitness functions) ──
+        status.textContent = `${eligible.length} eligible, ~${Math.round(totalCombos).toLocaleString()} combos → using greedy stepwise...`;
+
+        // Score each strategy individually
+        var stratIndiv = eligible.map(function(s) {
+          var m = evaluateMonthlyPL(monthlyPLs, [s], [1], windowMonthKeys);
+          return { name: s, score: m ? getScore(m) : -Infinity };
+        });
+        stratIndiv.sort(function(a, b) { return b.score - a.score; });
+
+        // Run multiple starting points for diversity (top N seeds)
+        var seeds = Math.min(topN, stratIndiv.length);
+        for (var si = 0; si < seeds; si++) {
+          var selected = [stratIndiv[si].name];
+          var selectedSizes = [1];
+
+          // Grow portfolio greedily
+          for (var gk = 1; gk < eligibleMaxStrats; gk++) {
+            var bestAdd = null, bestAddScore = -Infinity, bestAddSize = 1;
+            for (var gi = 0; gi < stratIndiv.length; gi++) {
+              var cand = stratIndiv[gi].name;
+              if (selected.indexOf(cand) >= 0) continue;
+              var maxSz = maxSize === 1 ? 1 : maxSize;
+              for (var sz = 1; sz <= maxSz; sz++) {
+                var tryCombo = selected.concat([cand]);
+                var trySizes = selectedSizes.concat([sz]);
+                var wm = evaluateMonthlyPL(monthlyPLs, tryCombo, trySizes, windowMonthKeys);
+                evaluated++;
+                if (wm) {
+                  var sc = getScore(wm);
+                  if (sc > bestAddScore) { bestAdd = cand; bestAddScore = sc; bestAddSize = sz; }
+                }
+              }
             }
+            if (!bestAdd) break;
+            // Only add if it improves the portfolio
+            var curMetrics = evaluateMonthlyPL(monthlyPLs, selected, selectedSizes, windowMonthKeys);
+            var curScore = curMetrics ? getScore(curMetrics) : -Infinity;
+            if (bestAddScore <= curScore) break;
+            selected.push(bestAdd);
+            selectedSizes.push(bestAddSize);
+          }
+
+          // Also try size optimization for each member if maxSize > 1
+          if (maxSize > 1) {
+            for (var oi = 0; oi < selected.length; oi++) {
+              var bestSz = selectedSizes[oi], bestOScore = -Infinity;
+              for (var sz = 1; sz <= maxSize; sz++) {
+                var trySz = selectedSizes.slice();
+                trySz[oi] = sz;
+                var wm = evaluateMonthlyPL(monthlyPLs, selected, trySz, windowMonthKeys);
+                evaluated++;
+                if (wm) { var sc = getScore(wm); if (sc > bestOScore) { bestOScore = sc; bestSz = sz; } }
+              }
+              selectedSizes[oi] = bestSz;
+            }
+          }
+
+          // Submit all sub-portfolios from minStrats to full size
+          for (var pk = Math.max(1, comboMin); pk <= selected.length; pk++) {
+            var subCombo = selected.slice(0, pk);
+            var subSizes = selectedSizes.slice(0, pk);
+            var wm = evaluateMonthlyPL(monthlyPLs, subCombo, subSizes, windowMonthKeys);
+            if (wm) insertResult({ combo: subCombo.slice(), sizes: subSizes.slice(), wm, fm: null, om: null });
+          }
+        }
+      } else {
+        // ── BRUTE FORCE (small search space) ──
+        for (const combo of generateCombinations(eligible, comboMin, eligibleMaxStrats)) {
+          if (maxSize === 1) {
+            const sizes = combo.map(() => 1);
             const wm = evaluateMonthlyPL(monthlyPLs, combo, sizes, windowMonthKeys);
             if (wm) insertResult({ combo: [...combo], sizes: [...sizes], wm, fm: null, om: null });
             evaluated++;
+          } else {
+            const k = combo.length;
+            const totalPerms = Math.pow(maxSize, k);
+            for (let p = 0; p < totalPerms; p++) {
+              const sizes = [];
+              let rem = p;
+              for (let j = 0; j < k; j++) { sizes.push((rem % maxSize) + 1); rem = Math.floor(rem / maxSize); }
+              const wm = evaluateMonthlyPL(monthlyPLs, combo, sizes, windowMonthKeys);
+              if (wm) insertResult({ combo: [...combo], sizes: [...sizes], wm, fm: null, om: null });
+              evaluated++;
+            }
           }
         }
       }
@@ -3807,9 +3881,10 @@ function runOptimizer() {
       finalResults.push(r);
       if (finalResults.length >= topN) break;
     }
-    topResults.length = 0; // free memory
+    topResults.length = 0;
 
-    status.textContent = `${eligible.length}/${strategies.length} eligible. Evaluated ${evaluated.toLocaleString()} combinations. Showing top ${finalResults.length}.`;
+    var modeLabel = USE_GREEDY ? 'greedy stepwise' : 'brute force';
+    status.textContent = `${eligible.length}/${strategies.length} eligible. ${modeLabel}: ${evaluated.toLocaleString()} evaluations. Showing top ${finalResults.length}.`;
     btn.disabled = false;
 
     if (!finalResults.length) {
@@ -4398,48 +4473,77 @@ function runWalkForward() {
     var comboMin = Math.max(1, minStrats);
 
     if (eligible.length >= comboMin) {
-      const useGreedy = useWeekly && maxSize === 1 && (objective === 'winRate' || objective === 'winRateTrend');
+      // Estimate combinations to decide greedy vs brute-force
+      var eligibleMaxStrats = Math.min(maxStrats, eligible.length);
+      var totalCombosEst = 0;
+      for (var ck = comboMin; ck <= Math.min(eligibleMaxStrats, eligible.length); ck++) {
+        var c = 1;
+        for (var ci = 0; ci < ck; ci++) c = c * (eligible.length - ci) / (ci + 1);
+        totalCombosEst += c * (maxSize === 1 ? 1 : Math.pow(maxSize, ck));
+      }
+      var wfUseGreedy = totalCombosEst > 50000;
 
-      if (useGreedy) {
-        // ── FAST GREEDY PATH for WinRate/WinRateTrend with size=1 ──
-        var stratScores = eligible.map(function(s) {
-          var pls = trainPeriods.map(function(m) { return periodPLs[s][m] || 0; });
-          var winCount = pls.filter(function(v) { return v > 0; }).length;
-          var wr = pls.length > 0 ? winCount / pls.length * 100 : 0;
-          return { name: s, pls: pls, winRate: wr };
+      if (wfUseGreedy) {
+        // ── GREEDY FORWARD STEPWISE (all fitness functions) ──
+        // Score each strategy individually
+        var stratIndiv = eligible.map(function(s) {
+          var m = evaluateMonthlyPL(periodPLs, [s], [1], trainPeriods, ppy);
+          return { name: s, score: m ? getScore(m) : -Infinity };
         });
-        stratScores.sort(function(a, b) { return b.winRate - a.winRate; });
+        stratIndiv.sort(function(a, b) { return b.score - a.score; });
 
-        var selected = stratScores.slice(0, comboMin);
-        var cumPls = trainPeriods.map(function(_, pi) {
-          var sum = 0;
-          selected.forEach(function(s) { sum += s.pls[pi]; });
-          return sum;
-        });
+        // Start with best individual strategy
+        var selected = [stratIndiv[0].name];
+        var selectedSizes = [1];
 
-        for (var gi = comboMin; gi < stratScores.length && selected.length < maxStrats; gi++) {
-          var candidate = stratScores[gi];
-          var newPls = cumPls.map(function(v, pi) { return v + candidate.pls[pi]; });
-          var newWins = newPls.filter(function(v) { return v > 0; }).length;
-          var curWins = cumPls.filter(function(v) { return v > 0; }).length;
-          if (newWins >= curWins) {
-            selected.push(candidate);
-            cumPls = newPls;
+        // Grow portfolio greedily
+        for (var gk = 1; gk < eligibleMaxStrats; gk++) {
+          var bestAdd = null, bestAddScore = -Infinity, bestAddSize = 1;
+          for (var gi = 0; gi < stratIndiv.length; gi++) {
+            var cand = stratIndiv[gi].name;
+            if (selected.indexOf(cand) >= 0) continue;
+            var maxSz = maxSize === 1 ? 1 : maxSize;
+            for (var sz = 1; sz <= maxSz; sz++) {
+              var tryCombo = selected.concat([cand]);
+              var trySizes = selectedSizes.concat([sz]);
+              var wm = evaluateMonthlyPL(periodPLs, tryCombo, trySizes, trainPeriods, ppy);
+              if (wm) {
+                var sc = getScore(wm);
+                if (sc > bestAddScore) { bestAdd = cand; bestAddScore = sc; bestAddSize = sz; }
+              }
+            }
+          }
+          if (!bestAdd) break;
+          var curMetrics = evaluateMonthlyPL(periodPLs, selected, selectedSizes, trainPeriods, ppy);
+          var curScore = curMetrics ? getScore(curMetrics) : -Infinity;
+          if (bestAddScore <= curScore) break;
+          selected.push(bestAdd);
+          selectedSizes.push(bestAddSize);
+        }
+
+        // Size optimization pass if maxSize > 1
+        if (maxSize > 1) {
+          for (var oi = 0; oi < selected.length; oi++) {
+            var bestSz = selectedSizes[oi], bestOScore = -Infinity;
+            for (var sz = 1; sz <= maxSize; sz++) {
+              var trySz = selectedSizes.slice();
+              trySz[oi] = sz;
+              var wm = evaluateMonthlyPL(periodPLs, selected, trySz, trainPeriods, ppy);
+              if (wm) { var sc = getScore(wm); if (sc > bestOScore) { bestOScore = sc; bestSz = sz; } }
+            }
+            selectedSizes[oi] = bestSz;
           }
         }
 
-        var greedyCombo = selected.map(function(s) { return s.name; });
-        var greedySizes = greedyCombo.map(function() { return 1; });
-        var wm = evaluateMonthlyPL(periodPLs, greedyCombo, greedySizes, trainPeriods, ppy);
+        var wm = evaluateMonthlyPL(periodPLs, selected, selectedSizes, trainPeriods, ppy);
         if (wm) {
           bestScore = getScore(wm);
-          bestCombo = greedyCombo;
-          bestSizes = greedySizes;
+          bestCombo = selected;
+          bestSizes = selectedSizes;
           bestTrainMetrics = wm;
         }
       } else {
-        // ── BRUTE FORCE PATH ──
-        var eligibleMaxStrats = Math.min(maxStrats, eligible.length);
+        // ── BRUTE FORCE PATH (small search space) ──
         for (const combo of generateCombinations(eligible, comboMin, eligibleMaxStrats)) {
           if (maxSize === 1) {
             const sizes = combo.map(() => 1);
